@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "PropTech Convention",
+    "slug": "proptech-app",
+    "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "proptech",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "pk.landtrack.proptech.convention"
+    },
+    "android": {
+      "package": "pk.landtrack.proptech.convention",
+      "versionCode": 1
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
