@@ -74,7 +74,7 @@ export default function HomeScreen() {
             {isAuthenticated && profile ? (
               <>
                 <Text style={s.heroEyebrow}>{greeting()}</Text>
-                <Text style={s.heroTitle}>{profile.full_name.split(" ")[0]}{"\n"}Welcome Back</Text>
+                <Text style={s.heroTitle}>{profile.full_name}</Text>
                 <Text style={s.heroSubtitle}>Step into the region's most connected real estate, capital and technology network.</Text>
               </>
             ) : (
@@ -156,8 +156,8 @@ const s = StyleSheet.create({
   heroBanner: { marginHorizontal: 16, marginTop: 16, borderRadius: 24, height: 196, overflow: "hidden" },
   heroContent: { flex: 1, justifyContent: "flex-end", padding: 20 },
   heroEyebrow: { color: "rgba(255,255,255,0.72)", fontSize: 11, fontWeight: "700", letterSpacing: 1.6, marginBottom: 6 },
-  heroTitle: { color: "#fff", fontSize: 28, fontWeight: "900", lineHeight: 32, letterSpacing: -0.5 },
-  heroSubtitle: { color: "#C8C5FF", fontSize: 15, fontWeight: "600", marginTop: 6, maxWidth: 290, lineHeight: 20 },
+  heroTitle: { color: "#fff", fontSize: 28, fontWeight: "900", lineHeight: 32, letterSpacing: -0.5, paddingBottom: 10 },
+  heroSubtitle: { color: "#C8C5FF", fontSize: 15, fontWeight: "600", marginTop: 6, maxWidth: 290, lineHeight: 17 },
   heroCtaWrap: { marginTop: 16, alignSelf: "flex-start", borderRadius: 12, overflow: "hidden" },
   heroCta: { paddingHorizontal: 16, paddingVertical: 10 },
   heroCtaText: { color: "#1B196A", fontSize: 13, fontWeight: "800" },

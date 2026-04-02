@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "PropTech Convention",
-    "slug": "proptech-app",
+    "name": "PropTech Club",
+    "slug": "proptech-club",
     "version": "1.0.0",
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "scheme": "proptech",
+    "scheme": "proptechclub",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "pk.landtrack.proptech.convention"
+      "bundleIdentifier": "pk.landtrack.proptech.club"
     },
     "android": {
-      "package": "pk.landtrack.proptech.convention",
+      "package": "pk.landtrack.proptech.club",
       "versionCode": 1
     },
     "web": {

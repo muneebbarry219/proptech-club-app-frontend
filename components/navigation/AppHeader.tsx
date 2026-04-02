@@ -24,7 +24,7 @@ export default function AppHeader() {
           <Bell size={22} color="#312FB8" strokeWidth={2} />
         </TouchableOpacity>
         {isAuthenticated ? (
-          <TouchableOpacity onPress={() => router.push("/profile" as any)} style={styles.avatarBtn}>
+          <TouchableOpacity onPress={() => router.push("/auth/profile" as any)} style={styles.avatarBtn}>
             <Text style={styles.avatarTxt}>{profile?.full_name ? initials(profile.full_name) : "?"}</Text>
           </TouchableOpacity>
         ) : (
