@@ -1,16 +1,15 @@
-import { createContext, useContext, useState, useEffect, useRef, useCallback, type ReactNode } from "react";
-import { API_BASE_URL, API_BASE_URL_CANDIDATES } from "../constants/api";
+import {
+  createContext, useContext, useState,
+  useEffect, useRef, useCallback, type ReactNode,
+} from "react";
 import { storage } from "../utils/storage";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, AUTH_URL, DB_URL } from "../constants/supabase";
 
-const STORAGE_KEY = "proptech_club_session";
-const API_BASE = `${API_BASE_URL}/api/auth`;
+// ─────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────
 
-const getNetworkErrorMessage = (endpoint: string, error: unknown) => {
-  const detail = error instanceof Error ? error.message : String(error);
-  return `Could not reach ${endpoint}. Check that the backend is running and reachable from this device. Details: ${detail}`;
-};
-
-export type UserRole = "developer" | "investor" | "broker" | "architect" | "tech";
+export type UserRole     = "developer" | "investor" | "broker" | "architect" | "tech";
 export type UserLocation = "karachi" | "lahore" | "islamabad" | "uae" | "ksa" | "other";
 export type MembershipTier = "free" | "starter" | "professional" | "enterprise";
 
@@ -35,20 +34,10 @@ export interface Membership {
   expires_at: string | null;
 }
 
-interface Session {
+interface StoredSession {
   user: { id: string; email: string };
-  token: string;
-}
-
-interface SignUpPayload {
-  fullName: string;
-  phoneNumber: string;
-  company: string;
-  designation: string;
-}
-
-interface SignUpResult {
-  error?: string;
+  access_token: string;
+  refresh_token: string;
 }
 
 interface AuthContextType {
@@ -57,190 +46,259 @@ interface AuthContextType {
   membership: Membership | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signUp: (email: string, password: string, payload?: SignUpPayload) => Promise<SignUpResult>;
+  signUp: (email: string, password: string) => Promise<{ error?: string }>;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   createProfile: (data: Omit<Profile, "id" | "is_verified" | "created_at">) => Promise<{ error?: string }>;
   updateProfile: (data: Partial<Profile>) => Promise<{ error?: string }>;
   refreshProfile: () => Promise<void>;
   apiFetch: (path: string, options?: RequestInit) => Promise<Response>;
+  getAccessToken: () => string | null;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Storage key
+// ─────────────────────────────────────────────────────────────
+
+const SESSION_KEY = "proptech_club_session_v2";
+
+// ─────────────────────────────────────────────────────────────
+// Supabase auth helpers
+// ─────────────────────────────────────────────────────────────
+
+const authHeaders = {
+  "Content-Type": "application/json",
+  apikey: SUPABASE_ANON_KEY,
+};
+
+function logBackendPayload(url: string, method: string, body?: unknown) {
+  if (body === undefined) return;
+  console.log("[Backend Payload]", { method, url, body });
+}
+
+async function supabaseSignUp(email: string, password: string) {
+  const payload = { email, password };
+  logBackendPayload(`${AUTH_URL}/signup`, "POST", payload);
+  const res = await fetch(`${AUTH_URL}/signup`, {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify(payload),
+  });
+  return { res, data: await res.json() };
+}
+
+async function supabaseSignIn(email: string, password: string) {
+  const payload = { email, password };
+  logBackendPayload(`${AUTH_URL}/token?grant_type=password`, "POST", payload);
+  const res = await fetch(`${AUTH_URL}/token?grant_type=password`, {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify(payload),
+  });
+  return { res, data: await res.json() };
+}
+
+async function supabaseRefresh(refresh_token: string) {
+  const payload = { refresh_token };
+  logBackendPayload(`${AUTH_URL}/token?grant_type=refresh_token`, "POST", payload);
+  const res = await fetch(`${AUTH_URL}/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.access_token
+    ? { access_token: data.access_token, refresh_token: data.refresh_token }
+    : null;
+}
+
+// ─────────────────────────────────────────────────────────────
+// DB helpers — direct Supabase REST calls
+// ─────────────────────────────────────────────────────────────
+
+function dbHeaders(token: string) {
+  return {
+    "Content-Type": "application/json",
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${token}`,
+    Prefer: "return=representation",
+  };
+}
+
+async function fetchProfile(userId: string, token: string): Promise<Profile | null> {
+  const res = await fetch(`${DB_URL}/profiles?id=eq.${userId}&select=*`, {
+    headers: dbHeaders(token),
+  });
+  if (!res.ok) return null;
+  const rows = await res.json();
+  return rows[0] ?? null;
+}
+
+async function fetchMembership(userId: string, token: string): Promise<Membership | null> {
+  const res = await fetch(
+    `${DB_URL}/memberships?user_id=eq.${userId}&select=tier,status,expires_at&limit=1`,
+    { headers: dbHeaders(token) }
+  );
+  if (!res.ok) return null;
+  const rows = await res.json();
+  return rows[0] ?? null;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Context
+// ─────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-const DEFAULT_MEMBERSHIP: Membership = {
-  tier: "free",
-  status: "active",
-  expires_at: null,
-};
-
-const normalizeProfile = (value: any): Profile => ({
-  id: String(value.id),
-  full_name: value.full_name ?? "",
-  company: value.company ?? null,
-  role: value.role ?? null,
-  current_focus: value.current_focus ?? null,
-  looking_for: Array.isArray(value.looking_for) ? value.looking_for : [],
-  location: value.location ?? "karachi",
-  whatsapp: value.whatsapp ?? null,
-  bio: value.bio ?? null,
-  avatar_url: value.avatar_url ?? null,
-  is_verified: Boolean(value.is_verified),
-  created_at: value.created_at ?? new Date().toISOString(),
-});
-
-const getAuthApiCandidates = () => API_BASE_URL_CANDIDATES.map((baseUrl) => `${baseUrl}/api/auth`);
-
-const tryAuthRequest = async (path: string, options?: RequestInit): Promise<Response> => {
-  const candidates = getAuthApiCandidates();
-  let lastError: unknown = null;
-
-  for (const candidate of candidates) {
-    try {
-      return await fetch(`${candidate}${path}`, options);
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  throw lastError ?? new Error("No API base URL candidates were reachable.");
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [user,       setUser]       = useState<{ id: string; email: string } | null>(null);
+  const [profile,    setProfile]    = useState<Profile | null>(null);
   const [membership, setMembership] = useState<Membership | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const tokenRef = useRef<string | null>(null);
+  const [isLoading,  setIsLoading]  = useState(true);
 
-  const saveSession = async (session: Session) => {
-    tokenRef.current = session.token;
+  const atRef = useRef<string | null>(null); // access token ref for sync access
+  const rtRef = useRef<string | null>(null); // refresh token ref
+
+  // ── Persist session ─────────────────────────────────────────
+
+  const saveSession = async (session: StoredSession) => {
+    atRef.current = session.access_token;
+    rtRef.current = session.refresh_token;
     setUser(session.user);
-    setMembership(DEFAULT_MEMBERSHIP);
-    await storage.setItem(STORAGE_KEY, JSON.stringify(session));
+    await storage.setItem(SESSION_KEY, JSON.stringify(session));
   };
 
   const clearSession = async () => {
-    tokenRef.current = null;
+    atRef.current = null;
+    rtRef.current = null;
     setUser(null);
     setProfile(null);
     setMembership(null);
-    await storage.removeItem(STORAGE_KEY);
+    await storage.removeItem(SESSION_KEY);
   };
 
-  const apiFetch = useCallback(async (path: string, options?: RequestInit): Promise<Response> => {
-    const token = tokenRef.current;
+  // ── Load user data (profile + membership) ───────────────────
 
-    return tryAuthRequest(path, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(options?.headers ?? {}),
-      },
-    });
-  }, []);
+  const loadUserData = async (userId: string, token: string) => {
+    const [p, m] = await Promise.all([
+      fetchProfile(userId, token),
+      fetchMembership(userId, token),
+    ]);
+    if (p) setProfile(p);
+    if (m) setMembership(m);
+    else setMembership({ tier: "free", status: "active", expires_at: null });
+  };
 
-  const refreshProfile = useCallback(async () => {
-    if (!tokenRef.current) {
-      return;
-    }
-
-    try {
-      const res = await apiFetch("/me", { method: "GET" });
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (res.status === 401) {
-          await clearSession();
-        }
-        return;
-      }
-
-      const nextProfile = normalizeProfile(data.user);
-      setProfile(nextProfile);
-      setUser({ id: nextProfile.id, email: data.user.email });
-      setMembership(DEFAULT_MEMBERSHIP);
-    } catch {
-      // Keep the last local session/profile state if the network is temporarily unavailable.
-    }
-  }, [apiFetch]);
+  // ── Restore session on app launch ───────────────────────────
 
   useEffect(() => {
     (async () => {
       try {
-        const raw = await storage.getItem(STORAGE_KEY);
-        if (!raw) {
-          return;
-        }
+        const raw = await storage.getItem(SESSION_KEY);
+        if (!raw) return;
 
-        const session: Session = JSON.parse(raw);
-        tokenRef.current = session.token;
+        const session: StoredSession = JSON.parse(raw);
+
+        // Always refresh token on launch to get a fresh one
+        const refreshed = await supabaseRefresh(session.refresh_token);
+        const token = refreshed?.access_token ?? session.access_token;
+        const rt    = refreshed?.refresh_token ?? session.refresh_token;
+
+        atRef.current = token;
+        rtRef.current = rt;
         setUser(session.user);
-        setMembership(DEFAULT_MEMBERSHIP);
-        await refreshProfile();
+
+        // Update stored session with fresh tokens
+        await storage.setItem(SESSION_KEY, JSON.stringify({
+          ...session,
+          access_token: token,
+          refresh_token: rt,
+        }));
+
+        await loadUserData(session.user.id, token);
+      } catch (e) {
+        console.warn("[AuthContext] Failed to restore session", e);
       } finally {
         setIsLoading(false);
       }
     })();
-  }, [refreshProfile]);
+  }, []);
 
-  const signUp = async (email: string, password: string, payload?: SignUpPayload): Promise<SignUpResult> => {
-    try {
-      const res = await tryAuthRequest("/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          password,
-          name: payload?.fullName,
-          phoneNumber: payload?.phoneNumber,
-          company: payload?.company,
-          designation: payload?.designation,
-        }),
-      });
-      const data = await res.json();
+  // ── apiFetch — authenticated Supabase REST calls ─────────────
 
-      if (!res.ok) {
-        return { error: data.message ?? data.error ?? "Signup failed" };
+  const apiFetch = useCallback(async (path: string, options?: RequestInit): Promise<Response> => {
+    const token = atRef.current;
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401 });
+    }
+
+    const makeReq = (tok: string) =>
+      (logBackendPayload(`${DB_URL}${path}`, options?.method ?? "GET", options?.body),
+      fetch(`${DB_URL}${path}`, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${tok}`,
+          Prefer: "return=representation",
+          ...(options?.headers ?? {}),
+        },
+      }));
+
+    let res = await makeReq(token);
+
+    // Token expired — try one silent refresh
+    if (res.status === 401 && rtRef.current) {
+      const refreshed = await supabaseRefresh(rtRef.current);
+      if (refreshed) {
+        atRef.current = refreshed.access_token;
+        rtRef.current = refreshed.refresh_token;
+        res = await makeReq(refreshed.access_token);
+      } else {
+        await clearSession();
       }
+    }
 
-      const nextProfile = normalizeProfile(data.user);
-      await saveSession({
-        user: { id: nextProfile.id, email: data.user.email },
-        token: data.token,
-      });
-      setProfile(nextProfile);
+    return res;
+  }, []);
+
+  // ── Public auth actions ──────────────────────────────────────
+
+  const signUp = async (email: string, password: string): Promise<{ error?: string }> => {
+    try {
+      const { res, data } = await supabaseSignUp(email, password);
+      if (!res.ok) {
+        return { error: data.error_description ?? data.msg ?? "Sign up failed" };
+      }
+      const session: StoredSession = {
+        user: { id: data.user.id, email: data.user.email },
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      };
+      await saveSession(session);
       return {};
-    } catch (error) {
-      console.error("[AuthContext.signUp] Signup request failed", error);
-      return { error: getNetworkErrorMessage(`${API_BASE}/signup`, error) };
+    } catch (e) {
+      return { error: "Network error. Please check your connection." };
     }
   };
 
   const signIn = async (email: string, password: string): Promise<{ error?: string }> => {
     try {
-      const res = await tryAuthRequest("/signin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-
+      const { res, data } = await supabaseSignIn(email, password);
       if (!res.ok) {
-        return { error: data.message ?? data.error ?? "Login failed" };
+        return { error: data.error_description ?? data.msg ?? "Sign in failed" };
       }
-
-      const nextProfile = normalizeProfile(data.user);
-      await saveSession({
-        user: { id: nextProfile.id, email: data.user.email },
-        token: data.token,
-      });
-      setProfile(nextProfile);
+      const session: StoredSession = {
+        user: { id: data.user.id, email: data.user.email },
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      };
+      await saveSession(session);
+      await loadUserData(data.user.id, data.access_token);
       return {};
-    } catch (error) {
-      console.error("[AuthContext.signIn] Signin request failed", error);
-      return { error: getNetworkErrorMessage(`${API_BASE}/signin`, error) };
+    } catch (e) {
+      return { error: "Network error. Please check your connection." };
     }
   };
 
@@ -248,50 +306,82 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await clearSession();
   };
 
-  const createProfile = async (data: Omit<Profile, "id" | "is_verified" | "created_at">): Promise<{ error?: string }> => {
-    return updateProfile(data);
+  const createProfile = async (
+    data: Omit<Profile, "id" | "is_verified" | "created_at">
+  ): Promise<{ error?: string }> => {
+    if (!user || !atRef.current) return { error: "Not authenticated" };
+    try {
+      const res = await apiFetch("/profiles", {
+        method: "POST",
+        body: JSON.stringify({ id: user.id, ...data, is_verified: false }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        return { error: result[0]?.message ?? result.message ?? "Failed to create profile" };
+      }
+      const created = Array.isArray(result) ? result[0] : result;
+      setProfile(created);
+      setMembership({ tier: "free", status: "active", expires_at: null });
+      return {};
+    } catch (e) {
+      return { error: `Error: ${e}` };
+    }
   };
 
   const updateProfile = async (data: Partial<Profile>): Promise<{ error?: string }> => {
-    if (!tokenRef.current) {
-      return { error: "Not authenticated" };
-    }
-
+    if (!user || !atRef.current) return { error: "Not authenticated" };
     try {
-      const res = await apiFetch("/profile", {
+      const payload = Object.fromEntries(
+        Object.entries(data).filter(([, value]) => value !== undefined)
+      );
+
+      console.log("[AuthContext] updateProfile payload:", payload);
+
+      const res = await apiFetch(`/profiles?id=eq.${user.id}`, {
         method: "PATCH",
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
       const result = await res.json();
-
       if (!res.ok) {
-        return { error: result.message ?? "Update failed" };
+        console.error("[AuthContext] updateProfile failed:", result);
+        return { error: result[0]?.message ?? "Update failed" };
       }
 
-      setProfile(normalizeProfile(result.user));
+      const updated = Array.isArray(result) ? result[0] : result;
+      console.log("[AuthContext] updateProfile patch response:", updated);
+
+      // Verify by reading latest profile from Supabase immediately after patch.
+      const latest = await fetchProfile(user.id, atRef.current);
+      if (latest) {
+        setProfile(latest);
+        console.log("[AuthContext] updateProfile verified with fresh DB read:", latest);
+      } else {
+        // Fallback to patch response if fresh read fails.
+        setProfile(updated);
+        console.warn("[AuthContext] updateProfile patched but fresh DB read failed; using patch response.");
+      }
+
       return {};
-    } catch (error) {
-      return { error: `Error: ${error}` };
+    } catch (e) {
+      console.error("[AuthContext] updateProfile exception:", e);
+      return { error: `Error: ${e}` };
     }
   };
 
+  const refreshProfile = async () => {
+    if (!user || !atRef.current) return;
+    await loadUserData(user.id, atRef.current);
+  };
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        profile,
-        membership,
-        isLoading,
-        isAuthenticated: !!user,
-        signUp,
-        signIn,
-        signOut,
-        createProfile,
-        updateProfile,
-        refreshProfile,
-        apiFetch,
-      }}
-    >
+    <AuthContext.Provider value={{
+      user, profile, membership,
+      isLoading, isAuthenticated: !!user,
+      signUp, signIn, signOut,
+      createProfile, updateProfile, refreshProfile,
+      apiFetch,
+      getAccessToken: () => atRef.current,
+    }}>
       {children}
     </AuthContext.Provider>
   );

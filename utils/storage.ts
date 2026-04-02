@@ -1,96 +1,65 @@
-import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const memoryStorage = new Map<string, string>();
+const memoryFallback = new Map<string, string>();
+let nativeStorageAvailable: boolean | null = null;
 
-const isNativeAsyncStorageAvailable = () => {
-  try {
-    return (
-      AsyncStorage != null &&
-      typeof AsyncStorage.getItem === "function" &&
-      typeof AsyncStorage.setItem === "function" &&
-      typeof AsyncStorage.removeItem === "function"
-    );
-  } catch {
-    return false;
-  }
-};
-
-const getWebStorage = () => {
-  if (typeof globalThis === "undefined" || !("localStorage" in globalThis)) {
-    return null;
-  }
+async function canUseNativeStorage() {
+  if (nativeStorageAvailable !== null) return nativeStorageAvailable;
 
   try {
-    return globalThis.localStorage;
-  } catch {
-    return null;
+    // Lightweight probe to verify the native module is actually usable.
+    await AsyncStorage.getItem("__storage_probe__");
+    nativeStorageAvailable = true;
+  } catch (error) {
+    nativeStorageAvailable = false;
+    console.warn("[storage] AsyncStorage unavailable, using memory fallback.", error);
   }
-};
 
-const getItem = async (key: string): Promise<string | null> => {
-  if (Platform.OS === "web") {
-    const webStorage = getWebStorage();
-    if (webStorage) {
-      return webStorage.getItem(key);
+  return nativeStorageAvailable;
+}
+
+export const storage = {
+  async getItem(key: string) {
+    if (!(await canUseNativeStorage())) {
+      return memoryFallback.get(key) ?? null;
     }
-  }
 
-  if (isNativeAsyncStorageAvailable()) {
     try {
       return await AsyncStorage.getItem(key);
     } catch (error) {
-      console.warn("[storage] Falling back from native getItem", error);
+      console.warn("[storage] getItem failed, using memory fallback.", error);
+      nativeStorageAvailable = false;
+      return memoryFallback.get(key) ?? null;
     }
-  }
+  },
 
-  return memoryStorage.get(key) ?? null;
-};
-
-const setItem = async (key: string, value: string): Promise<void> => {
-  if (Platform.OS === "web") {
-    const webStorage = getWebStorage();
-    if (webStorage) {
-      webStorage.setItem(key, value);
+  async setItem(key: string, value: string) {
+    if (!(await canUseNativeStorage())) {
+      memoryFallback.set(key, value);
       return;
     }
-  }
 
-  if (isNativeAsyncStorageAvailable()) {
     try {
       await AsyncStorage.setItem(key, value);
-      return;
     } catch (error) {
-      console.warn("[storage] Falling back from native setItem", error);
+      console.warn("[storage] setItem failed, using memory fallback.", error);
+      nativeStorageAvailable = false;
+      memoryFallback.set(key, value);
     }
-  }
+  },
 
-  memoryStorage.set(key, value);
-};
-
-const removeItem = async (key: string): Promise<void> => {
-  if (Platform.OS === "web") {
-    const webStorage = getWebStorage();
-    if (webStorage) {
-      webStorage.removeItem(key);
+  async removeItem(key: string) {
+    if (!(await canUseNativeStorage())) {
+      memoryFallback.delete(key);
       return;
     }
-  }
 
-  if (isNativeAsyncStorageAvailable()) {
     try {
       await AsyncStorage.removeItem(key);
-      return;
     } catch (error) {
-      console.warn("[storage] Falling back from native removeItem", error);
+      console.warn("[storage] removeItem failed, using memory fallback.", error);
+      nativeStorageAvailable = false;
+      memoryFallback.delete(key);
     }
-  }
-
-  memoryStorage.delete(key);
-};
-
-export const storage = {
-  getItem,
-  setItem,
-  removeItem,
+  },
 };

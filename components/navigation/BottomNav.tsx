@@ -1,19 +1,19 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter, usePathname } from "expo-router";
-import { Home, BriefcaseBusiness, Users, MessageCircle } from "lucide-react-native";
+import { Home, BriefcaseBusiness, Users, MessagesSquare } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ITEMS = [
   { key: "home", route: "/home", Icon: Home, label: "Home" },
   { key: "deals", route: "/deals", Icon: BriefcaseBusiness, label: "My Deals" },
-  { key: "connections", route: "/members", Icon: Users, label: "My Connections" },
-  { key: "messages", route: "/messages", Icon: MessageCircle, label: "Messages" },
+  { key: "members", route: "/members", Icon: Users, label: "Members" },
+  { key: "messages", route: "/rooms", Icon: MessagesSquare, label: "Messages" },
 ];
 
 export default function BottomNav() {
-  const router = useRouter();
+  const router   = useRouter();
   const pathname = usePathname();
-  const insets = useSafeAreaInsets();
+  const insets   = useSafeAreaInsets();
 
   const isActive = (route: string) => {
     if (route === "/home") return pathname === "/home";
@@ -31,8 +31,14 @@ export default function BottomNav() {
             style={styles.item}
             activeOpacity={0.7}
           >
-            <Icon size={24} color={active ? "#312FB8" : "#aaaaaa"} strokeWidth={active ? 2.2 : 1.8} />
-            <Text style={[styles.label, active && styles.labelActive]}>{label}</Text>
+            <Icon
+              size={22}
+              color={active ? "#312FB8" : "#aaaaaa"}
+              strokeWidth={active ? 2.2 : 1.8}
+            />
+            <Text style={[styles.label, active && styles.labelActive]}>
+              {label}
+            </Text>
             {active && <View style={styles.dot} />}
           </TouchableOpacity>
         );
@@ -45,13 +51,13 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     backgroundColor: "#fff",
-    borderTopWidth: 1,
+    borderTopWidth: 0.5,
     borderTopColor: "rgba(49,47,184,0.08)",
-    paddingTop: 12,
-    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingHorizontal: 8,
   },
   item: { flex: 1, alignItems: "center", gap: 3 },
-  label: { fontSize: 10, fontWeight: "500", color: "#aaaaaa" },
+  label: { fontSize: 9, fontWeight: "500", color: "#aaaaaa" },
   labelActive: { fontWeight: "700", color: "#312FB8" },
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: "#312FB8", marginTop: 1 },
 });
