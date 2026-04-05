@@ -63,6 +63,18 @@ function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+function pendingRequestDeletePath(currentUserId: string, memberId: string) {
+  return `/connections?requester_id=eq.${currentUserId}&receiver_id=eq.${memberId}&status=eq.pending`;
+}
+
+function receivedRequestDeletePath(currentUserId: string, memberId: string) {
+  return `/connections?requester_id=eq.${memberId}&receiver_id=eq.${currentUserId}&status=eq.pending`;
+}
+
+function connectionDeletePath(currentUserId: string, memberId: string) {
+  return `/connections?or=(and(requester_id.eq.${currentUserId},receiver_id.eq.${memberId}),and(requester_id.eq.${memberId},receiver_id.eq.${currentUserId}))`;
+}
+
 export default function MemberProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -187,12 +199,11 @@ export default function MemberProfileScreen() {
   };
 
   const handleDecline = async () => {
-    if (!connId) return;
+    if (!user) return;
 
     setActionLoad(true);
-    const res = await apiFetch(`/connections?id=eq.${connId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: "declined" }),
+    const res = await apiFetch(receivedRequestDeletePath(user.id, id), {
+      method: "DELETE",
     });
     setActionLoad(false);
 
@@ -215,7 +226,7 @@ export default function MemberProfileScreen() {
   };
 
   const handleDisconnect = () => {
-    if (!connId || !member) return;
+    if (!user || !member) return;
 
     Alert.alert("Disconnect", `Remove ${member.full_name} from your connections?`, [
       { text: "Keep", style: "cancel" },
@@ -224,9 +235,8 @@ export default function MemberProfileScreen() {
         style: "destructive",
         onPress: async () => {
           setActionLoad(true);
-          const res = await apiFetch(`/connections?id=eq.${connId}`, {
-            method: "PATCH",
-            body: JSON.stringify({ status: "declined" }),
+          const res = await apiFetch(connectionDeletePath(user.id, member.id), {
+            method: "DELETE",
           });
           setActionLoad(false);
 
@@ -239,6 +249,23 @@ export default function MemberProfileScreen() {
         },
       },
     ]);
+  };
+
+  const handleCancelRequest = async () => {
+    if (!user) return;
+
+    setActionLoad(true);
+    const res = await apiFetch(pendingRequestDeletePath(user.id, id), {
+      method: "DELETE",
+    });
+    setActionLoad(false);
+
+    if (res.ok) {
+      await loadConnectionState();
+      return;
+    }
+
+    Alert.alert("Error", "Could not cancel request. Please try again.");
   };
 
   const renderActionBtn = () => {
@@ -274,10 +301,16 @@ export default function MemberProfileScreen() {
 
     if (connStatus === "pending_sent") {
       return (
-        <View style={s.btnPend}>
-          <Clock3 size={16} color="#633806" strokeWidth={2} />
-          <Text style={s.btnPendTxt}>Request Sent</Text>
-        </View>
+        <TouchableOpacity onPress={handleCancelRequest} style={s.btnDecline} activeOpacity={0.85} disabled={actionLoad}>
+          {actionLoad ? (
+            <ActivityIndicator color="#DC2626" size="small" />
+          ) : (
+            <>
+              <X size={16} color="#DC2626" strokeWidth={2.4} />
+              <Text style={s.btnDeclineTxt}>Cancel Request</Text>
+            </>
+          )}
+        </TouchableOpacity>
       );
     }
 
@@ -346,6 +379,10 @@ export default function MemberProfileScreen() {
                 <View style={s.connBadge}>
                   <Check size={10} color="#FFFFFF" strokeWidth={3} />
                 </View>
+              ) : connStatus === "pending_sent" || connStatus === "pending_received" ? (
+                <View style={s.pendingBadge}>
+                  <Clock3 size={10} color="#FFFFFF" strokeWidth={2.6} />
+                </View>
               ) : null}
             </View>
 
@@ -358,6 +395,14 @@ export default function MemberProfileScreen() {
               {connStatus === "connected" ? (
                 <View style={s.badgeConn}>
                   <Text style={s.badgeConnTxt}>Connected</Text>
+                </View>
+              ) : connStatus === "pending_sent" ? (
+                <View style={s.badgePend}>
+                  <Text style={s.badgePendTxt}>Request sent</Text>
+                </View>
+              ) : connStatus === "pending_received" ? (
+                <View style={s.badgePend}>
+                  <Text style={s.badgePendTxt}>Request received</Text>
                 </View>
               ) : null}
 
@@ -527,6 +572,19 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  pendingBadge: {
+    position: "absolute",
+    bottom: -4,
+    right: -4,
+    width: 20,
+    height: 20,
+    borderRadius: 7,
+    backgroundColor: "#8C5B16",
+    borderWidth: 2.5,
+    borderColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   heroName: {
     fontSize: 22,
     fontWeight: "900",
@@ -549,6 +607,13 @@ const s = StyleSheet.create({
     borderRadius: 20,
   },
   badgeConnTxt: { fontSize: 11, fontWeight: "700", color: "#085041" },
+  badgePend: {
+    backgroundColor: "#FAEEDA",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  badgePendTxt: { fontSize: 11, fontWeight: "700", color: "#633806" },
   badgeVer: {
     backgroundColor: "#E6F1FB",
     paddingHorizontal: 10,
@@ -593,18 +658,6 @@ const s = StyleSheet.create({
     borderColor: "rgba(180,35,24,0.18)",
   },
   btnDisconnectTxt: { color: "#B42318", fontSize: 15, fontWeight: "800" },
-  btnPend: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#FAEEDA",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: "rgba(186,117,23,0.3)",
-  },
-  btnPendTxt: { color: "#633806", fontSize: 15, fontWeight: "700" },
   pendingActions: { flexDirection: "row", gap: 10 },
   btnDecline: {
     flexDirection: "row",

@@ -1,4 +1,6 @@
 import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { AlertTriangle } from "lucide-react-native";
 
 interface DiscardSignupModalProps {
   visible: boolean;
@@ -15,6 +17,9 @@ export default function DiscardSignupModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onStay}>
       <Pressable style={styles.backdrop} onPress={onStay}>
         <Pressable style={styles.card} onPress={() => {}}>
+          <View style={styles.badge}>
+            <AlertTriangle size={22} color="#B42318" strokeWidth={2.2} />
+          </View>
           <Text style={styles.title}>Leave signup?</Text>
           <Text style={styles.text}>
             Your details will be lost and you will need to sign up again.
@@ -24,9 +29,11 @@ export default function DiscardSignupModal({
             <TouchableOpacity style={styles.secondaryBtn} activeOpacity={0.85} onPress={onStay}>
               <Text style={styles.secondaryTxt}>Keep Editing</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.85} onPress={onDiscard}>
-              <Text style={styles.primaryTxt}>Discard Details</Text>
-            </TouchableOpacity>
+            <LinearGradient colors={["#D7263D", "#A61B30"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.primaryBtn}>
+              <TouchableOpacity style={styles.primaryBtnInner} activeOpacity={0.85} onPress={onDiscard}>
+                <Text style={styles.primaryTxt}>Discard Details</Text>
+              </TouchableOpacity>
+            </LinearGradient>
           </View>
         </Pressable>
       </Pressable>
@@ -37,7 +44,7 @@ export default function DiscardSignupModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(10, 12, 24, 0.5)",
+    backgroundColor: "rgba(15, 18, 40, 0.56)",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
@@ -46,13 +53,30 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 340,
     backgroundColor: "#fff",
-    borderRadius: 24,
-    padding: 22,
+    borderRadius: 28,
+    padding: 26,
     borderWidth: 1,
-    borderColor: "rgba(49,47,184,0.08)",
+    borderColor: "rgba(49,47,184,0.10)",
+    shadowColor: "#1B196A",
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.18,
+    shadowRadius: 30,
+    elevation: 12,
+  },
+  badge: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: "#FFF1F1",
+    borderWidth: 1,
+    borderColor: "rgba(215,38,61,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    marginBottom: 12,
   },
   title: {
-    fontSize: 22,
+    fontSize: 23,
     fontWeight: "900",
     color: "#121426",
     textAlign: "center",
@@ -67,12 +91,12 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 18,
+    marginTop: 20,
   },
   secondaryBtn: {
     flex: 1,
-    height: 46,
-    borderRadius: 14,
+    height: 48,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: "rgba(49,47,184,0.16)",
     backgroundColor: "#F5F4FF",
@@ -86,9 +110,11 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     flex: 1,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: "#D7263D",
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  primaryBtnInner: {
+    height: 48,
     alignItems: "center",
     justifyContent: "center",
   },

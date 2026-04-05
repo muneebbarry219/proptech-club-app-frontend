@@ -76,6 +76,18 @@ function findConnectionForMember(connections: any[], currentUserId: string, memb
   );
 }
 
+function pendingRequestDeletePath(currentUserId: string, memberId: string) {
+  return `/connections?requester_id=eq.${currentUserId}&receiver_id=eq.${memberId}&status=eq.pending`;
+}
+
+function receivedRequestDeletePath(currentUserId: string, memberId: string) {
+  return `/connections?requester_id=eq.${memberId}&receiver_id=eq.${currentUserId}&status=eq.pending`;
+}
+
+function connectionDeletePath(currentUserId: string, memberId: string) {
+  return `/connections?or=(and(requester_id.eq.${currentUserId},receiver_id.eq.${memberId}),and(requester_id.eq.${memberId},receiver_id.eq.${currentUserId}))`;
+}
+
 function MemberRow({
   member,
   onPress,
@@ -106,6 +118,10 @@ function MemberRow({
         {isConnected ? (
           <View style={s.connDot}>
             <Check size={8} color="#FFFFFF" strokeWidth={3} />
+          </View>
+        ) : member.connectionStatus === "pending_sent" ? (
+          <View style={s.pendingDot}>
+            <Clock3 size={8} color="#FFFFFF" strokeWidth={2.8} />
           </View>
         ) : null}
       </View>
@@ -153,7 +169,7 @@ function MemberRow({
       ) : isPending ? (
         member.connectionStatus === "pending_sent" ? (
           <TouchableOpacity onPress={onCancel} style={s.btnPend} activeOpacity={0.8}>
-            <Clock3 size={14} color="#8C5B16" strokeWidth={2.2} />
+            <X size={14} color="#8C5B16" strokeWidth={2.4} />
             <Text style={s.btnPendTxt}>Cancel Request</Text>
           </TouchableOpacity>
         ) : (
@@ -335,7 +351,7 @@ export default function MembersScreen() {
   };
 
   const handleCancelPending = (member: Member) => {
-    if (!member.connectionId) return;
+    if (!user) return;
 
     Alert.alert("Cancel request", `Withdraw your connection request to ${member.full_name}?`, [
       { text: "Keep", style: "cancel" },
@@ -349,9 +365,8 @@ export default function MembersScreen() {
             )
           );
 
-          const res = await apiFetch(`/connections?id=eq.${member.connectionId}`, {
-            method: "PATCH",
-            body: JSON.stringify({ status: "declined" }),
+          const res = await apiFetch(pendingRequestDeletePath(user.id, member.id), {
+            method: "DELETE",
           });
 
           if (!res.ok) {
@@ -383,7 +398,7 @@ export default function MembersScreen() {
   };
 
   const handleDeclineReceived = async (member: Member) => {
-    if (!member.connectionId) return;
+    if (!user) return;
 
     setMembers((prev) =>
       prev.map((item) =>
@@ -391,9 +406,8 @@ export default function MembersScreen() {
       )
     );
 
-    const res = await apiFetch(`/connections?id=eq.${member.connectionId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: "declined" }),
+    const res = await apiFetch(receivedRequestDeletePath(user.id, member.id), {
+      method: "DELETE",
     });
 
     if (!res.ok) {
@@ -412,7 +426,7 @@ export default function MembersScreen() {
   };
 
   const handleDisconnect = (member: Member) => {
-    if (!member.connectionId) return;
+    if (!user) return;
 
     Alert.alert("Disconnect", `Remove ${member.full_name} from your connections?`, [
       { text: "Keep", style: "cancel" },
@@ -426,9 +440,8 @@ export default function MembersScreen() {
             )
           );
 
-          const res = await apiFetch(`/connections?id=eq.${member.connectionId}`, {
-            method: "PATCH",
-            body: JSON.stringify({ status: "declined" }),
+          const res = await apiFetch(connectionDeletePath(user.id, member.id), {
+            method: "DELETE",
           });
 
           if (!res.ok) {
@@ -718,6 +731,19 @@ const s = StyleSheet.create({
     height: 14,
     borderRadius: 4,
     backgroundColor: "#0F6E56",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pendingDot: {
+    position: "absolute",
+    bottom: -3,
+    right: -3,
+    width: 14,
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: "#8C5B16",
     borderWidth: 2,
     borderColor: "#FFFFFF",
     alignItems: "center",

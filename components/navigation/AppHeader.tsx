@@ -1,7 +1,6 @@
 import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Bell } from "lucide-react-native";
 import { useAuth } from "../../context/AuthContext";
 
 function initials(name: string) {
@@ -20,9 +19,6 @@ export default function AppHeader() {
         <Text style={styles.logoName}>PropTech Club</Text>
       </View>
       <View style={styles.headerRight}>
-        <TouchableOpacity onPress={() => router.push("/notifications" as any)} style={styles.notifBtn}>
-          <Bell size={22} color="#312FB8" strokeWidth={2} />
-        </TouchableOpacity>
         {isAuthenticated ? (
           <TouchableOpacity onPress={() => router.push("/auth/profile" as any)} style={styles.avatarBtn}>
             <Text style={styles.avatarTxt}>{profile?.full_name ? initials(profile.full_name) : "?"}</Text>
@@ -52,7 +48,6 @@ const styles = StyleSheet.create({
   logoMark: { width: 48, height: 48 },
   logoName: { fontSize: 20, fontFamily: "BebasNeue", color: "#1B196A", letterSpacing: 0.3 },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
-  notifBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: "#f0f0f8", alignItems: "center", justifyContent: "center" },
   avatarBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: "#312FB8", alignItems: "center", justifyContent: "center" },
   avatarTxt: { color: "#fff", fontSize: 12, fontWeight: "700" },
   signInBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, backgroundColor: "#EEEDFE", borderWidth: 1, borderColor: "rgba(49,47,184,0.2)" },

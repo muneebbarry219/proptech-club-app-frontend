@@ -10,7 +10,7 @@ const ITEMS = [
   { key: "home", route: "/home", Icon: Home, label: "Home" },
   { key: "events", route: "/events", Icon: CalendarDays, label: "Events" },
   { key: "members", route: "/members", Icon: Users, label: "Members" },
-  { key: "messages", route: "/rooms", Icon: MessagesSquare, label: "Messages" },
+  { key: "messages", route: "/messages", Icon: MessagesSquare, label: "Messages" },
 ];
 
 export default function BottomNav() {
