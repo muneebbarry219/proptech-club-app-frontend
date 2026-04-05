@@ -2,11 +2,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, ActivityIndicator, KeyboardAvoidingView,
-  Platform, Alert, Linking,
+  Platform, Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, Send, Phone } from "lucide-react-native";
+import { ArrowLeft, Send } from "lucide-react-native";
 import { useAuth } from "../../context/AuthContext";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../../constants/supabase";
 
@@ -26,7 +26,6 @@ interface PartnerProfile {
   full_name: string;
   role: string;
   company: string | null;
-  whatsapp: string | null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -91,10 +90,11 @@ function MessageBubble({
 // ── Main Screen ────────────────────────────────────────────────
 
 export default function ChatScreen() {
-  const { partnerId } = useLocalSearchParams<{ partnerId: string }>();
+  const { id, partnerId: legacyPartnerId } = useLocalSearchParams<{ id?: string; partnerId?: string }>();
   const router        = useRouter();
   const insets        = useSafeAreaInsets();
   const { user, apiFetch } = useAuth();
+  const partnerId = id ?? legacyPartnerId ?? "";
 
   const [partner,   setPartner]   = useState<PartnerProfile | null>(null);
   const [messages,  setMessages]  = useState<Message[]>([]);
@@ -111,7 +111,7 @@ export default function ChatScreen() {
     if (!partnerId) return;
     (async () => {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/profiles?id=eq.${partnerId}&select=id,full_name,role,company,whatsapp`,
+        `${SUPABASE_URL}/rest/v1/profiles?id=eq.${partnerId}&select=id,full_name,role,company`,
         { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
       );
       if (res.ok) {
@@ -281,18 +281,6 @@ export default function ChatScreen() {
 
   // ── WhatsApp ───────────────────────────────────────────────────
 
-  const handleWhatsApp = () => {
-    if (partner?.whatsapp) {
-      const number = partner.whatsapp.replace(/\D/g, "");
-      Linking.openURL(`https://wa.me/${number}`);
-    } else {
-      Alert.alert(
-        "No WhatsApp",
-        `${partner?.full_name} hasn't added a WhatsApp number.`
-      );
-    }
-  };
-
   // ── Render items ───────────────────────────────────────────────
 
   const renderItem = ({ item, index }: { item: Message; index: number }) => {
@@ -359,9 +347,6 @@ export default function ChatScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity onPress={handleWhatsApp} style={s.waBtn} activeOpacity={0.8}>
-            <Phone size={18} color="#0F6E56" strokeWidth={2} />
-          </TouchableOpacity>
         </View>
 
         {/* ── Messages ── */}
@@ -430,7 +415,6 @@ const s = StyleSheet.create({
   headerInfo:         { flex: 1, minWidth: 0 },
   headerName:         { fontSize: 15, fontWeight: "800", color: "#1a1a2e" },
   headerSub:          { fontSize: 11, color: "#888", fontWeight: "500", textTransform: "capitalize" },
-  waBtn:              { width: 38, height: 38, borderRadius: 12, backgroundColor: "#E1F5EE", alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "rgba(15,110,86,0.2)", flexShrink: 0 },
   messagesList:       { padding: 16, paddingBottom: 8 },
   dateDivider:        { alignItems: "center", marginVertical: 12 },
   dateDividerTxt:     { fontSize: 10, fontWeight: "700", color: "#bbb", letterSpacing: 1 },

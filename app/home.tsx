@@ -212,7 +212,6 @@ const s = StyleSheet.create({
     marginBottom: 14,
     paddingHorizontal: 16,
     letterSpacing: -0.4,
-    fontFamily: "arp-display",
   },
   insightsScrollContent: {
     paddingHorizontal: 16,

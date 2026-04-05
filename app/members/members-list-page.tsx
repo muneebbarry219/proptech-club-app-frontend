@@ -9,13 +9,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  Linking,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Search, X, Users, Check, Clock3, UserPlus } from "lucide-react-native";
+import { Search, X, Users, Check, Clock3, UserPlus, MessageCircle } from "lucide-react-native";
 import { useAuth, type UserRole } from "../../context/AuthContext";
 import AppShell from "../../components/layout/AppShell";
 import AuthRequiredModal from "../../components/modals/AuthRequiredModal";
+import ConnectionActionModal from "../../components/modals/ConnectionActionModal";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../../constants/supabase";
 
 type ConnectionStatus = "none" | "pending_sent" | "pending_received" | "connected";
@@ -95,7 +95,6 @@ function MemberRow({
   onAccept,
   onDecline,
   onCancel,
-  onDisconnect,
   onMessage,
 }: {
   member: Member;
@@ -104,7 +103,6 @@ function MemberRow({
   onAccept: () => void;
   onDecline: () => void;
   onCancel: () => void;
-  onDisconnect: () => void;
   onMessage: () => void;
 }) {
   const color = ROLE_COLORS[member.role] ?? "#312FB8";
@@ -158,14 +156,10 @@ function MemberRow({
       </View>
 
       {isConnected ? (
-        <View style={s.connectedRowActions}>
-          <TouchableOpacity onPress={onMessage} style={s.btnMsg} activeOpacity={0.8}>
-            <Check size={16} color="#0F6E56" strokeWidth={2.5} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onDisconnect} style={s.btnDisconnectRequest} activeOpacity={0.8}>
-            <X size={14} color="#B42318" strokeWidth={2.4} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={onMessage} style={s.btnMessage} activeOpacity={0.8}>
+          <MessageCircle size={14} color="#0F6E56" strokeWidth={2.2} />
+          <Text style={s.btnMessageTxt}>Message</Text>
+        </TouchableOpacity>
       ) : isPending ? (
         member.connectionStatus === "pending_sent" ? (
           <TouchableOpacity onPress={onCancel} style={s.btnPend} activeOpacity={0.8}>
@@ -227,6 +221,7 @@ export default function MembersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
+  const [cancelTarget, setCancelTarget] = useState<Member | null>(null);
 
   const load = useCallback(async () => {
     if (isLoading) return;
@@ -351,50 +346,41 @@ export default function MembersScreen() {
   };
 
   const handleCancelPending = (member: Member) => {
-    if (!user) return;
-
-    Alert.alert("Cancel request", `Withdraw your connection request to ${member.full_name}?`, [
-      { text: "Keep", style: "cancel" },
-      {
-        text: "Cancel Request",
-        style: "destructive",
-        onPress: async () => {
-          setMembers((prev) =>
-            prev.map((item) =>
-              item.id === member.id ? { ...item, connectionStatus: "none", connectionId: null } : item
-            )
-          );
-
-          const res = await apiFetch(pendingRequestDeletePath(user.id, member.id), {
-            method: "DELETE",
-          });
-
-          if (!res.ok) {
-            setMembers((prev) =>
-              prev.map((item) =>
-                item.id === member.id
-                  ? { ...item, connectionStatus: "pending_sent", connectionId: member.connectionId }
-                  : item
-              )
-            );
-            Alert.alert("Error", "Could not cancel request. Please try again.");
-            return;
-          }
-
-          await load();
-        },
-      },
-    ]);
+    setCancelTarget(member);
   };
 
-  const handleMessage = (member: Member) => {
-    if (member.whatsapp) {
-      const number = member.whatsapp.replace(/\D/g, "");
-      Linking.openURL(`https://wa.me/${number}`);
+  const confirmCancelPending = async () => {
+    if (!user || !cancelTarget) return;
+
+    const member = cancelTarget;
+    setCancelTarget(null);
+    setMembers((prev) =>
+      prev.map((item) =>
+        item.id === member.id ? { ...item, connectionStatus: "none", connectionId: null } : item
+      )
+    );
+
+    const res = await apiFetch(pendingRequestDeletePath(user.id, member.id), {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      setMembers((prev) =>
+        prev.map((item) =>
+          item.id === member.id
+            ? { ...item, connectionStatus: "pending_sent", connectionId: member.connectionId }
+            : item
+        )
+      );
+      Alert.alert("Error", "Could not cancel request. Please try again.");
       return;
     }
 
-    Alert.alert("No WhatsApp number", `${member.full_name} hasn't added a WhatsApp number yet.`);
+    await load();
+  };
+
+  const handleMessage = (member: Member) => {
+    router.push(`/messages/${member.id}` as any);
   };
 
   const handleDeclineReceived = async (member: Member) => {
@@ -586,13 +572,20 @@ export default function MembersScreen() {
                 onAccept={() => handleAccept(item)}
                 onDecline={() => handleDeclineReceived(item)}
                 onCancel={() => handleCancelPending(item)}
-                onDisconnect={() => handleDisconnect(item)}
                 onMessage={() => handleMessage(item)}
               />
             )}
           />
         )}
       </View>
+      <ConnectionActionModal
+        visible={!!cancelTarget}
+        title="Cancel Request?"
+        message={cancelTarget ? `Withdraw your connection request to ${cancelTarget.full_name}?` : ""}
+        confirmLabel="Cancel Request"
+        onClose={() => setCancelTarget(null)}
+        onConfirm={confirmCancelPending}
+      />
     </AppShell>
   );
 }
@@ -826,33 +819,21 @@ const s = StyleSheet.create({
     fontWeight: "700",
     color: "#312FB8",
   },
-  btnMsg: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    backgroundColor: "#E1F5EE",
+  btnMessage: {
+    minHeight: 32,
+    borderRadius: 10,
+    backgroundColor: "#EAF7F2",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "rgba(15,110,86,0.2)",
-    flexShrink: 0,
-  },
-  connectedRowActions: {
     flexDirection: "row",
     gap: 6,
-    flexShrink: 0,
-  },
-  btnDisconnectRequest: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    backgroundColor: "#FEECEE",
     borderWidth: 1.5,
-    borderColor: "rgba(180,35,24,0.16)",
-    alignItems: "center",
-    justifyContent: "center",
+    borderColor: "rgba(15,110,86,0.18)",
     flexShrink: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
+  btnMessageTxt: { fontSize: 11, lineHeight: 14, fontWeight: "700", color: "#0F6E56" },
   btnPend: {
     minHeight: 32,
     borderRadius: 10,

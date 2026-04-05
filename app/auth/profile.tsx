@@ -547,6 +547,7 @@ export default function ProfileScreen() {
   const [passwordSheetOpen, setPasswordSheetOpen] = useState(false);
   const [cameraSheetOpen, setCameraSheetOpen] = useState(false);
   const [signOutModalOpen, setSignOutModalOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [saveErr, setSaveErr] = useState("");
 
   useEffect(() => {
@@ -554,6 +555,12 @@ export default function ProfileScreen() {
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (!isLoading && !user && !isCompletingSignup) {
+      router.replace("/home");
+    }
+  }, [isCompletingSignup, isLoading, router, user]);
 
   useEffect(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -666,8 +673,10 @@ export default function ProfileScreen() {
 
   const confirmSignOut = async () => {
     setSignOutModalOpen(false);
+    setIsSigningOut(true);
     await signOut();
     router.replace("/home");
+    setIsSigningOut(false);
   };
 
   const openAvatarOptions = () => setCameraSheetOpen(true);

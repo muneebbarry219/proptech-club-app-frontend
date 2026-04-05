@@ -354,21 +354,6 @@ export default function MessagesScreen() {
       <View style={s.container}>
 
       <View style={s.stickyHead}>
-        <View style={s.titleRow}>
-          <Text style={s.title}>Messages</Text>
-          <View style={s.headerActions}>
-            {totalUnread > 0 ? (
-              <View style={s.unreadPill}>
-                <Text style={s.unreadPillTxt}>{totalUnread} unread</Text>
-              </View>
-            ) : null}
-            <TouchableOpacity onPress={openStartChat} activeOpacity={0.85} style={s.headerChatBtn}>
-              <Plus size={15} color="#FFFFFF" strokeWidth={2.6} />
-              <Text style={s.headerChatBtnTxt}>Initiate Chat</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
         <View style={s.searchBar}>
           <Search size={16} color="#AAA" strokeWidth={2} />
           <TextInput
@@ -485,29 +470,6 @@ export default function MessagesScreen() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F8FC" },
   stickyHead: { backgroundColor: "#FFFFFF", borderBottomWidth: 0.5, borderBottomColor: "rgba(49,47,184,0.08)" },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 10,
-    gap: 10,
-  },
-  title: { fontSize: 17, fontWeight: "800", color: "#1A1A2E", flexShrink: 0 },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
-  unreadPill: { backgroundColor: "#312FB8", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  unreadPillTxt: { fontSize: 11, fontWeight: "700", color: "#FFFFFF" },
-  headerChatBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#312FB8",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  headerChatBtnTxt: { color: "#FFFFFF", fontSize: 12, fontWeight: "800" },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",

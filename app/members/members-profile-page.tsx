@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Linking,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -24,6 +23,7 @@ import {
 } from "lucide-react-native";
 import { useAuth } from "../../context/AuthContext";
 import AppShell from "../../components/layout/AppShell";
+import ConnectionActionModal from "../../components/modals/ConnectionActionModal";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../../constants/supabase";
 
 type ConnectionStatus = "none" | "pending_sent" | "pending_received" | "connected";
@@ -85,6 +85,7 @@ export default function MemberProfileScreen() {
   const [connId, setConnId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoad, setActionLoad] = useState(false);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
 
   const loadMember = useCallback(async () => {
     if (!id) return;
@@ -202,7 +203,7 @@ export default function MemberProfileScreen() {
     if (!user) return;
 
     setActionLoad(true);
-    const res = await apiFetch(receivedRequestDeletePath(user.id, id), {
+    const res = await apiFetch(`/connections?id=eq.${connId}`, {
       method: "DELETE",
     });
     setActionLoad(false);
@@ -216,13 +217,8 @@ export default function MemberProfileScreen() {
   };
 
   const handleMessage = () => {
-    if (member?.whatsapp) {
-      const number = member.whatsapp.replace(/\D/g, "");
-      Linking.openURL(`https://wa.me/${number}`);
-      return;
-    }
-
-    Alert.alert("No WhatsApp", `${member?.full_name} hasn't added a WhatsApp number yet.`);
+    if (!member) return;
+    router.push(`/messages/${member.id}` as any);
   };
 
   const handleDisconnect = () => {
@@ -235,7 +231,7 @@ export default function MemberProfileScreen() {
         style: "destructive",
         onPress: async () => {
           setActionLoad(true);
-          const res = await apiFetch(connectionDeletePath(user.id, member.id), {
+          const res = await apiFetch(`/connections?id=eq.${connId}`, {
             method: "DELETE",
           });
           setActionLoad(false);
@@ -255,7 +251,7 @@ export default function MemberProfileScreen() {
     if (!user) return;
 
     setActionLoad(true);
-    const res = await apiFetch(pendingRequestDeletePath(user.id, id), {
+    const res = await apiFetch(`/connections?id=eq.${connId}`, {
       method: "DELETE",
     });
     setActionLoad(false);
@@ -283,7 +279,7 @@ export default function MemberProfileScreen() {
         <View style={s.connectedActions}>
           <TouchableOpacity onPress={handleMessage} style={s.btnMsg} activeOpacity={0.85}>
             <MessageCircle size={16} color="#FFFFFF" strokeWidth={2.2} />
-            <Text style={s.btnMsgTxt}>WhatsApp</Text>
+            <Text style={s.btnMsgTxt}>Message</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleDisconnect} style={s.btnDisconnect} activeOpacity={0.85} disabled={actionLoad}>
             {actionLoad ? (
@@ -301,7 +297,7 @@ export default function MemberProfileScreen() {
 
     if (connStatus === "pending_sent") {
       return (
-        <TouchableOpacity onPress={handleCancelRequest} style={s.btnDecline} activeOpacity={0.85} disabled={actionLoad}>
+        <TouchableOpacity onPress={() => setCancelModalOpen(true)} style={s.btnDecline} activeOpacity={0.85} disabled={actionLoad}>
           {actionLoad ? (
             <ActivityIndicator color="#DC2626" size="small" />
           ) : (
@@ -495,7 +491,7 @@ export default function MemberProfileScreen() {
             </View>
           ) : null}
 
-          {connStatus === "connected" && member.whatsapp ? (
+          {connStatus === "connected" ? (
             <View style={s.section}>
               <Text style={s.secLabel}>Contact</Text>
               <TouchableOpacity onPress={handleMessage} style={s.waBtn} activeOpacity={0.85}>
@@ -503,8 +499,8 @@ export default function MemberProfileScreen() {
                   <MessageCircle size={18} color="#0F6E56" strokeWidth={2} />
                 </View>
                 <View style={s.waCopy}>
-                  <Text style={s.waBtnTitle}>WhatsApp</Text>
-                  <Text style={s.waBtnSub}>{member.whatsapp}</Text>
+                  <Text style={s.waBtnTitle}>Message</Text>
+                  <Text style={s.waBtnSub}>Open your conversation with {member.full_name}</Text>
                 </View>
                 <ChevronRight size={18} color="#0F6E56" strokeWidth={2.2} />
               </TouchableOpacity>
@@ -512,6 +508,17 @@ export default function MemberProfileScreen() {
           ) : null}
         </ScrollView>
       </View>
+      <ConnectionActionModal
+        visible={cancelModalOpen}
+        title="Cancel Request?"
+        message={member ? `Withdraw your connection request to ${member.full_name}?` : ""}
+        confirmLabel="Cancel Request"
+        onClose={() => setCancelModalOpen(false)}
+        onConfirm={async () => {
+          setCancelModalOpen(false);
+          await handleCancelRequest();
+        }}
+      />
     </AppShell>
   );
 }

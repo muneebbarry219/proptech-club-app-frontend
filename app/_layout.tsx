@@ -6,14 +6,16 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts } from "expo-font";
 import { BebasNeue_400Regular } from "@expo-google-fonts/bebas-neue";
 import {
-  Poppins_400Regular,
-  Poppins_500Medium,
-  Poppins_600SemiBold,
-  Poppins_700Bold,
-  Poppins_800ExtraBold,
-  Poppins_900Black,
-} from "@expo-google-fonts/poppins";
+  Outfit_400Regular,
+  Outfit_500Medium,
+  Outfit_600SemiBold,
+  Outfit_700Bold,
+  Outfit_800ExtraBold,
+  Outfit_900Black,
+} from "@expo-google-fonts/outfit";
 import { AuthProvider } from "../context/AuthContext";
+
+// ── Font weight → Poppins family map ─────────────────────────
 
 function normalizeWeight(fontWeight: unknown): number {
   if (typeof fontWeight === "number") return fontWeight;
@@ -26,61 +28,73 @@ function normalizeWeight(fontWeight: unknown): number {
   return 400;
 }
 
-function poppinsFamilyForWeight(fontWeight: unknown) {
-  const weight = normalizeWeight(fontWeight);
-  if (weight >= 900) return "Poppins_900Black";
-  if (weight >= 800) return "Poppins_800ExtraBold";
-  if (weight >= 700) return "Poppins_700Bold";
-  if (weight >= 600) return "Poppins_600SemiBold";
-  if (weight >= 500) return "Poppins_500Medium";
-  return "Poppins_400Regular";
+function outfitFamily(fontWeight: unknown) {
+  const w = normalizeWeight(fontWeight);
+  if (w >= 900) return "Outfit_900Black";
+  if (w >= 800) return "Outfit_800ExtraBold";
+  if (w >= 700) return "Outfit_700Bold";
+  if (w >= 600) return "Outfit_600SemiBold";
+  if (w >= 500) return "Outfit_500Medium";
+  return "Outfit_400Regular";
 }
 
+// ── Global font patch ─────────────────────────────────────────
+// Intercepts every Text and TextInput render and applies Poppins
+// unless the element already has BebasNeue (logo) set.
+
 const ReactAny = React as any;
-if (!ReactAny.__poppinsTextPatchApplied) {
+if (!ReactAny.__fontPatchApplied) {
+  (Text as any).defaultProps = {
+    ...((Text as any).defaultProps ?? {}),
+    style: [{ fontFamily: "Outfit_400Regular" }, (Text as any).defaultProps?.style].filter(Boolean),
+  };
+  (TextInput as any).defaultProps = {
+    ...((TextInput as any).defaultProps ?? {}),
+    style: [{ fontFamily: "Outfit_400Regular" }, (TextInput as any).defaultProps?.style].filter(Boolean),
+  };
+
   const originalCreateElement = ReactAny.createElement.bind(ReactAny);
 
   ReactAny.createElement = (type: any, props: any, ...children: any[]) => {
     const isTextLike = type === Text || type === TextInput;
-    if (!isTextLike) {
-      return originalCreateElement(type, props, ...children);
-    }
+    if (!isTextLike) return originalCreateElement(type, props, ...children);
 
     const nextProps = props ?? {};
     const flatStyle = StyleSheet.flatten(nextProps.style) ?? {};
 
-    // Keep explicit Bebas labels untouched (PropTech Club).
+    // Leave BebasNeue (logo in splash + header) untouched
     if (flatStyle.fontFamily === "BebasNeue") {
       return originalCreateElement(type, nextProps, ...children);
     }
 
-    const styleWithPoppins = {
+    const patchedStyle = {
       ...flatStyle,
-      fontFamily: poppinsFamilyForWeight(flatStyle.fontWeight),
+      fontFamily: outfitFamily(flatStyle.fontWeight),
     } as any;
 
-    delete styleWithPoppins.fontWeight;
+    // Remove fontWeight — Poppins already encodes it in the family name
+    delete patchedStyle.fontWeight;
 
-    return originalCreateElement(type, { ...nextProps, style: styleWithPoppins }, ...children);
+    return originalCreateElement(type, { ...nextProps, style: patchedStyle }, ...children);
   };
 
-  ReactAny.__poppinsTextPatchApplied = true;
+  ReactAny.__fontPatchApplied = true;
 }
+
+// ── Root layout ───────────────────────────────────────────────
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     BebasNeue: BebasNeue_400Regular,
-    Poppins_400Regular,
-    Poppins_500Medium,
-    Poppins_600SemiBold,
-    Poppins_700Bold,
-    Poppins_800ExtraBold,
-    Poppins_900Black,
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
+    Outfit_800ExtraBold,
+    Outfit_900Black,
   });
 
-  if (!fontsLoaded) {
-    return null;
-  }
+  if (!fontsLoaded) return null;
 
   return (
     <SafeAreaProvider>

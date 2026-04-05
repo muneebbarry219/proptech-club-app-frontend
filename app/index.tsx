@@ -10,6 +10,21 @@ import { storage } from "../utils/storage";
 
 const { width } = Dimensions.get("window");
 const ONBOARDED_KEY = "proptech_onboarded";
+const FLAG_URIS = {
+  ksa: "https://flagcdn.com/w80/sa.png",
+  pk: "https://flagcdn.com/w80/pk.png",
+  uae: "https://flagcdn.com/w80/ae.png",
+} as const;
+
+function CountryFlag({ country }: { country: "ksa" | "pk" | "uae" }) {
+  return (
+    <Image
+      source={{ uri: FLAG_URIS[country] }}
+      style={s.flagImage}
+      resizeMode="cover"
+    />
+  );
+}
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -39,7 +54,6 @@ export default function SplashScreen() {
     setCanEnter(false);
     progressW.setValue(0);
 
-    // Floating particles
     particles.forEach((p, i) => {
       Animated.loop(
         Animated.sequence([
@@ -58,7 +72,6 @@ export default function SplashScreen() {
       ).start();
     });
 
-    // Main animation
     Animated.sequence([
       Animated.parallel([
         Animated.timing(logoOpacity, { toValue: 1, duration: 800, delay: 300, useNativeDriver: true }),
@@ -68,7 +81,6 @@ export default function SplashScreen() {
       Animated.timing(btnOp, { toValue: 1, duration: 500, useNativeDriver: true }),
     ]).start();
 
-    // Progress bar
     const prog = Animated.timing(progressW, {
       toValue: width - 80,
       duration: 5000,
@@ -76,23 +88,20 @@ export default function SplashScreen() {
     });
     prog.start(({ finished }) => { if (finished) setCanEnter(true); });
     return () => prog.stop();
-  }, [isLoading]);
+  }, [isLoading, particles, progressW, logoOpacity, logoY, taglineOp, btnOp]);
 
   const handleEnter = async () => {
     if (isLoading || !canEnter) return;
 
     if (isAuthenticated) {
-      // Signed in but no profile — send to profile setup
       if (!profile) {
         router.replace("/auth/profile");
         return;
       }
-      // Fully set up — go home
       router.replace("/home");
       return;
     }
 
-    // Not signed in — check if onboarded before
     const onboarded = await storage.getItem(ONBOARDED_KEY);
     router.replace(onboarded ? "/home" : "/onboarding");
   };
@@ -106,11 +115,12 @@ export default function SplashScreen() {
     >
       <LinearGradient
         colors={["#0f0e7a", "#1a18a0", "#312FB8", "#2820C2"]}
-        start={{ x: 0.3, y: 1 }} end={{ x: 0, y: 0 }}
+        start={{ x: 0.3, y: 1 }}
+        end={{ x: 0, y: 0 }}
         style={StyleSheet.absoluteFillObject}
       />
 
-      {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
         <View
           key={i}
           style={[s.gridLine, { left: `${6 + i * 13}%` as any, opacity: 0.025 + i * 0.004 }]}
@@ -138,13 +148,16 @@ export default function SplashScreen() {
             <Text style={s.logoName}>The PropTech Club</Text>
           </Animated.View>
 
-          <Animated.Text style={[s.flags, { opacity: taglineOp }]}>
-            {"🇵🇰 | 🇸🇦"}
-          </Animated.Text>
+          <Animated.View style={[s.flagsRow, { opacity: taglineOp }]}>
+            <CountryFlag country="ksa" />
+            <CountryFlag country="pk" />
+            <CountryFlag country="uae" />
+          </Animated.View>
 
-          <Animated.Text style={[s.tagline, { opacity: taglineOp }]}>
-            Where Real Estate, Capital &amp; Technology Align
-          </Animated.Text>
+          <Animated.View style={[s.taglineWrap, { opacity: taglineOp }]}>
+            <Text style={s.taglinePrimary}>Grow Your Network</Text>
+            <Text style={s.taglineSecondary}>Grow Your Networth</Text>
+          </Animated.View>
 
           <Animated.View style={[s.btnWrap, { opacity: btnOp }]}>
             <TouchableOpacity
@@ -155,7 +168,7 @@ export default function SplashScreen() {
             >
               <Text style={s.btnText}>Enter Ecosystem</Text>
               <View style={[s.btnArrow, !canEnter && s.btnArrowDisabled]}>
-                <Text style={s.btnArrowText}>→</Text>
+                <Text style={s.btnArrowText}>{">"}</Text>
               </View>
             </TouchableOpacity>
           </Animated.View>
@@ -180,10 +193,56 @@ const s = StyleSheet.create({
   logoWrap: { alignItems: "center", marginBottom: 22 },
   logoImage: { width: 132, height: 132 },
   logoName: { fontSize: 38, color: "#fff", fontFamily: "BebasNeue", letterSpacing: 1.5, textAlign: "center", marginTop: 8 },
-  flags: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 24, textAlign: "center", marginBottom: 16, marginTop: -8 },
-  tagline: { color: "rgba(255,255,255,0.78)", fontFamily: "Poppins_500Medium", fontSize: 18, lineHeight: 26, textAlign: "center", maxWidth: 300, marginBottom: 52 },
+  flagsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 26,
+  },
+  flagImage: {
+    width: 38,
+    height: 24,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  taglineWrap: {
+    alignItems: "center",
+    marginTop: 18,
+    marginBottom: 78,
+  },
+  taglinePrimary: {
+    color: "rgba(255,255,255,0.82)",
+    fontFamily: "Outfit_400Regular",
+    fontSize: 24,
+    lineHeight: 28,
+    letterSpacing: -0.4,
+    textAlign: "center",
+  },
+  taglineSecondary: {
+    color: "#FFFFFF",
+    fontFamily: "Outfit_800ExtraBold",
+    fontSize: 31,
+    lineHeight: 35,
+    letterSpacing: -0.9,
+    textAlign: "center",
+    marginTop: 6,
+  },
   btnWrap: { alignSelf: "center" },
-  btn: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#fff", borderRadius: 14, paddingHorizontal: 24, paddingVertical: 14, shadowColor: "#000", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 6 },
+  btn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
+  },
   btnDisabled: { opacity: 0.5 },
   btnText: { fontSize: 16, fontWeight: "800", color: "#312FB8" },
   btnArrow: { width: 28, height: 28, borderRadius: 8, backgroundColor: "#312FB8", alignItems: "center", justifyContent: "center" },
