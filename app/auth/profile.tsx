@@ -17,13 +17,16 @@ import {
   Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import { Eye, EyeOff, X, Camera, Pencil, LogOut, Image as ImageIcon, Check } from "lucide-react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { ArrowLeft, Eye, EyeOff, X, Camera, Pencil, LogOut, Image as ImageIcon, Check } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
-import { useAuth, type UserRole, type UserLocation } from "../../context/AuthContext";
+import { useAuth, type Profile, type UserRole, type UserLocation } from "../../context/AuthContext";
 import AppHeader from "../../components/navigation/AppHeader";
 import BottomNav from "../../components/navigation/BottomNav";
+import DiscardSignupModal from "../../components/modals/DiscardSignupModal";
 import { AUTH_URL, SUPABASE_ANON_KEY } from "../../constants/supabase";
+import { clearPendingSignupDraft, getPendingSignupDraft, type PendingSignupDraft } from "../../utils/pending-signup";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ROLES: { value: UserRole; label: string }[] = [
   { value: "developer", label: "Developer" },
@@ -160,7 +163,7 @@ function PasswordSheet({
             onClose();
           }}
         >
-          <Pressable style={ms.sheet} onPress={() => {}}>
+          <Pressable style={ms.sheet} onPress={() => { }}>
             <View style={ms.handle} />
             <View style={ms.row}>
               <Text style={ms.title}>Change Password</Text>
@@ -225,9 +228,301 @@ function FieldLabel({ label }: { label: string }) {
   return <Text style={s.fieldLabel}>{label}</Text>;
 }
 
+function CompleteSignupFlow({
+  existingUser,
+  signUp,
+  createProfile,
+  signOut,
+}: {
+  existingUser: { id: string; email: string } | null;
+  signUp: (email: string, password: string) => Promise<{ error?: string }>;
+  createProfile: (data: Omit<Profile, "id" | "is_verified" | "created_at">) => Promise<{ error?: string }>;
+  signOut: () => Promise<void>;
+}) {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const isDraftSignup = mode === "complete-signup";
+
+  const [draft, setDraft] = useState<PendingSignupDraft | null>(null);
+  const [loadingDraft, setLoadingDraft] = useState(isDraftSignup);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [step, setStep] = useState<1 | 2>(1);
+
+  const [company, setCompany] = useState("");
+  const [currentFocus, setCurrentFocus] = useState("");
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [lookingFor, setLookingFor] = useState<string[]>([]);
+  const [location, setLocation] = useState<UserLocation>("karachi");
+
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      if (!isDraftSignup) {
+        setLoadingDraft(false);
+        return;
+      }
+
+      const pending = await getPendingSignupDraft();
+      if (!active) return;
+
+      if (!pending) {
+        router.replace("/auth/sign-up");
+        return;
+      }
+
+      setDraft(pending);
+      setLoadingDraft(false);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [isDraftSignup, router]);
+
+  const toggleLookingFor = (item: string) => {
+    setLookingFor((prev) => (prev.includes(item) ? prev.filter((entry) => entry !== item) : [...prev, item]));
+  };
+
+  const validatePersonalStep = () => {
+    if (!company.trim()) return "Please enter your company or organisation.";
+    if (!role) return "Please select your role.";
+    if (!location) return "Please select your location.";
+    return "";
+  };
+
+  const validateProfessionalStep = () => {
+    if (!currentFocus.trim()) return "Please enter your current focus.";
+    if (!lookingFor.length) return "Please choose at least one option for looking for.";
+    return "";
+  };
+
+  const handleDiscard = async () => {
+    await clearPendingSignupDraft();
+    if (existingUser) {
+      await signOut();
+    }
+    setShowDiscardModal(false);
+    router.replace("/auth/sign-up");
+  };
+
+  const handleSubmit = async () => {
+    const validationError = validateProfessionalStep();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+
+    if (!draft) {
+      setSubmitting(false);
+      setError("Your signup session expired. Please sign up again.");
+      if (existingUser) {
+        await signOut();
+      }
+      router.replace("/auth/sign-up");
+      return;
+    }
+
+    if (!existingUser) {
+      const signupResult = await signUp(draft.email, draft.password);
+      if (signupResult.error) {
+        setSubmitting(false);
+        setError(signupResult.error);
+        return;
+      }
+    }
+
+    const profileResult = await createProfile({
+      full_name: draft.fullName.trim(),
+      company: company.trim(),
+      role,
+      current_focus: currentFocus.trim(),
+      looking_for: lookingFor,
+      location,
+      whatsapp: draft.whatsapp.trim(),
+      bio: null,
+      avatar_url: null,
+    });
+
+    setSubmitting(false);
+
+    if (profileResult.error) {
+      setError(profileResult.error);
+      return;
+    }
+
+    await clearPendingSignupDraft();
+    router.replace("/home");
+  };
+
+  if (loadingDraft) {
+    return (
+      <View style={[s.container, { alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator color="#312FB8" size="large" />
+      </View>
+    );
+  }
+
+  const flowTitle = existingUser ? "Complete Your Profile" : "Finish Your Signup";
+  const flowSubtitle = existingUser
+    ? "Complete the two required steps below before continuing."
+    : "Complete the two required steps below to create your account.";
+  const submitLabel = existingUser ? "Complete Profile" : "Create Account";
+  const stepTitle = step === 1 ? "Personal Details" : "Professional Details";
+  const stepSubtitle = step === 1 ? "Step 1 of 2" : "Step 2 of 2";
+  const signupSummary = draft
+    ? [draft.fullName, draft.email, draft.whatsapp].filter(Boolean)
+    : [];
+
+  const handleNextStep = () => {
+    const validationError = validatePersonalStep();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setError("");
+    setStep(2);
+  };
+
+  return (
+    <LinearGradient colors={["#0f0e7a", "#1a18a0", "#312FB8"]} start={{ x: 0, y: 1 }} end={{ x: 0, y: 0 }} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={[s.completeScroll, { paddingTop: insets.top + 20, paddingBottom: Math.max(insets.bottom, 24) + 20 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <TouchableOpacity onPress={() => setShowDiscardModal(true)} style={s.back}>
+            <ArrowLeft size={18} color="#fff" strokeWidth={2.4} />
+          </TouchableOpacity>
+
+          <View style={s.completeHeader}>
+            <Text style={s.completeTitle}>{flowTitle}</Text>
+            <Text style={s.completeSubtitle}>{flowSubtitle}</Text>
+          </View>
+
+          <View style={s.completeCard}>
+            <View style={s.stepTabs}>
+              <View style={[s.stepTab, step === 1 && s.stepTabActive]}>
+                <Text style={[s.stepTabText, step === 1 && s.stepTabTextActive]}>1. Personal</Text>
+              </View>
+              <View style={[s.stepTab, step === 2 && s.stepTabActive]}>
+                <Text style={[s.stepTabText, step === 2 && s.stepTabTextActive]}>2. Professional</Text>
+              </View>
+            </View>
+            <Text style={s.stepTitle}>{stepTitle}</Text>
+            <Text style={s.stepSubtitle}>{stepSubtitle}</Text>
+
+            {!!error && (
+              <View style={s.errorBox}>
+                <Text style={s.errorText}>{error}</Text>
+              </View>
+            )}
+
+            {step === 1 ? (
+              <>
+                <Text style={s.label}>COMPANY / ORGANISATION</Text>
+                <TextInput style={s.completeInput} value={company} onChangeText={setCompany} placeholder="Company name" placeholderTextColor="#aaa" />
+
+                <Text style={[s.label, s.mt]}>ROLE</Text>
+                <View style={s.chipsWrap}>
+                  {ROLES.map((item) => (
+                    <TouchableOpacity key={item.value} onPress={() => setRole(item.value)} style={[s.chip, role === item.value && s.chipOn]}>
+                      <Text style={[s.chipTxt, role === item.value && s.chipTxtOn]}>{item.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={[s.label, s.mt]}>LOCATION</Text>
+                <View style={s.chipsWrap}>
+                  {LOCATIONS.map((item) => (
+                    <TouchableOpacity key={item.value} onPress={() => setLocation(item.value)} style={[s.chip, location === item.value && s.chipOn]}>
+                      <Text style={[s.chipTxt, location === item.value && s.chipTxtOn]}>{item.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={[s.label, s.mt]}>CURRENT FOCUS</Text>
+                <TextInput
+                  style={[s.completeInput, s.completeTextarea]}
+                  value={currentFocus}
+                  onChangeText={setCurrentFocus}
+                  placeholder="What are you currently focused on?"
+                  placeholderTextColor="#aaa"
+                  multiline
+                  textAlignVertical="top"
+                />
+
+                <Text style={[s.label, s.mt]}>LOOKING FOR</Text>
+                <View style={s.chipsWrap}>
+                  {LOOKING_FOR_OPTIONS.map((item) => (
+                    <TouchableOpacity key={item} onPress={() => toggleLookingFor(item)} style={[s.chip, lookingFor.includes(item) && s.chipOn]}>
+                      <Text style={[s.chipTxt, lookingFor.includes(item) && s.chipTxtOn]}>{item}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {!!signupSummary.length && (
+                  <View style={s.signupSummary}>
+                    <Text style={s.signupSummaryLabel}>Saved from signup</Text>
+                    <Text style={s.signupSummaryValue}>{signupSummary[0]}</Text>
+                    {signupSummary.slice(1).map((item) => (
+                      <Text key={item} style={s.signupSummaryMeta}>
+                        {item}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+
+            <View style={s.stepActions}>
+              {step === 2 ? (
+                <TouchableOpacity onPress={() => { setError(""); setStep(1); }} activeOpacity={0.85} style={s.stepSecondaryBtn}>
+                  <Text style={s.stepSecondaryBtnText}>Back</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={s.stepActionSpacer} />
+              )}
+
+              {step === 1 ? (
+                <TouchableOpacity onPress={handleNextStep} activeOpacity={0.85} style={s.stepPrimaryBtnWrap}>
+                  <LinearGradient colors={["#312FB8", "#1B196A"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.submitBtn}>
+                    <Text style={s.submitText}>Continue</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity onPress={handleSubmit} disabled={submitting} activeOpacity={0.85} style={s.stepPrimaryBtnWrap}>
+                  <LinearGradient colors={["#312FB8", "#1B196A"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.submitBtn}>
+                    {submitting ? <ActivityIndicator color="#fff" /> : <Text style={s.submitText}>{submitLabel}</Text>}
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <DiscardSignupModal visible={showDiscardModal} onStay={() => setShowDiscardModal(false)} onDiscard={handleDiscard} />
+    </LinearGradient>
+  );
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, profile, membership, updateProfile, signOut, getAccessToken } = useAuth();
+  const { user, profile, updateProfile, signOut, getAccessToken, signUp, createProfile, isLoading } = useAuth();
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+
+  const isCompletingSignup = mode === "complete-signup" || (!isLoading && !!user && !profile);
 
   const [fullName, setFullName] = useState(profile?.full_name ?? "");
   const [whatsapp, setWhatsapp] = useState(profile?.whatsapp ?? "");
@@ -442,6 +737,10 @@ export default function ProfileScreen() {
   const roleLabel = ROLES.find((r) => r.value === role)?.label ?? "No role";
   const locLabel = LOCATIONS.find((l) => l.value === location)?.label ?? location;
   const bioText = bio.trim();
+
+  if (isCompletingSignup) {
+    return <CompleteSignupFlow existingUser={user} signUp={signUp} createProfile={createProfile} signOut={signOut} />;
+  }
 
   if (!profile) {
     return (
@@ -705,7 +1004,7 @@ export default function ProfileScreen() {
         onRequestClose={() => setSignOutModalOpen(false)}
       >
         <Pressable style={s.signOutBackdrop} onPress={() => setSignOutModalOpen(false)}>
-          <Pressable style={s.signOutModalCard} onPress={() => {}}>
+          <Pressable style={s.signOutModalCard} onPress={() => { }}>
             <TouchableOpacity
               style={s.signOutCloseBtn}
               onPress={() => setSignOutModalOpen(false)}
@@ -752,7 +1051,7 @@ export default function ProfileScreen() {
         onRequestClose={() => setCameraSheetOpen(false)}
       >
         <Pressable style={s.cameraBackdrop} onPress={() => setCameraSheetOpen(false)}>
-          <Pressable style={s.cameraModalCard} onPress={() => {}}>
+          <Pressable style={s.cameraModalCard} onPress={() => { }}>
             <TouchableOpacity style={s.cameraCloseBtn} onPress={() => setCameraSheetOpen(false)} activeOpacity={0.85}>
               <X size={14} color="#72768B" strokeWidth={2.2} />
             </TouchableOpacity>
@@ -792,7 +1091,104 @@ export default function ProfileScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f8fc" },
-  fixedTop: { backgroundColor: "#fff", borderBottomWidth: 0.5, borderBottomColor: "rgba(49,47,184,0.08)" },
+  completeScroll: { flexGrow: 1, paddingHorizontal: 24 },
+  back: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 28,
+  },
+  completeHeader: { alignItems: "center", marginBottom: 28 },
+  completeTitle: { color: "#fff", fontSize: 26, fontWeight: "900", marginBottom: 6, textAlign: "center" },
+  completeSubtitle: { color: "rgba(255,255,255,0.68)", fontSize: 14, fontWeight: "500", textAlign: "center" },
+  completeCard: {
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.2,
+    shadowRadius: 32,
+    elevation: 12,
+  },
+  stepTabs: { flexDirection: "row", gap: 10, marginBottom: 18 },
+  stepTab: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(49,47,184,0.14)",
+    backgroundColor: "#F5F4FF",
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  stepTabActive: {
+    backgroundColor: "#312FB8",
+    borderColor: "#312FB8",
+  },
+  stepTabText: { fontSize: 12, fontWeight: "700", color: "#312FB8" },
+  stepTabTextActive: { color: "#fff" },
+  stepTitle: { fontSize: 18, fontWeight: "900", color: "#171A34" },
+  stepSubtitle: { marginTop: 4, marginBottom: 16, fontSize: 12, color: "#6E7391", fontWeight: "600" },
+  errorBox: {
+    backgroundColor: "rgba(220,38,38,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(220,38,38,0.2)",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorText: { color: "#dc2626", fontSize: 13, fontWeight: "500" },
+  label: { fontSize: 11, fontWeight: "700", color: "#555", letterSpacing: 0.5, marginBottom: 6 },
+  mt: { marginTop: 14 },
+  completeInput: {
+    minHeight: 48,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "rgba(49,47,184,0.15)",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: "#1a1a2e",
+    backgroundColor: "#fafafe",
+  },
+  completeTextarea: { minHeight: 92, maxHeight: 140 },
+  readonlyInput: { color: "#6E7391", backgroundColor: "#F3F4FA" },
+  submitWrap: { marginTop: 22, borderRadius: 14, overflow: "hidden" },
+  submitBtn: { height: 52, alignItems: "center", justifyContent: "center" },
+  submitText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  stepActions: { flexDirection: "row", gap: 12, marginTop: 22 },
+  stepActionSpacer: { flex: 1 },
+  stepSecondaryBtn: {
+    flex: 1,
+    height: 52,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(49,47,184,0.16)",
+    backgroundColor: "#F5F4FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepSecondaryBtnText: { fontSize: 14, fontWeight: "700", color: "#312FB8" },
+  stepPrimaryBtnWrap: { flex: 1, borderRadius: 14, overflow: "hidden" },
+  signupSummary: {
+    marginTop: 18,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(49,47,184,0.12)",
+    backgroundColor: "#F6F5FF",
+  },
+  signupSummaryLabel: { fontSize: 11, fontWeight: "800", color: "#312FB8", letterSpacing: 0.4, marginBottom: 6 },
+  signupSummaryValue: { fontSize: 14, fontWeight: "700", color: "#1a1a2e" },
+  signupSummaryMeta: { fontSize: 12, color: "#6E7391", marginTop: 3 },
+  fixedTop: {
+    backgroundColor: "#312FB8",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "rgba(15,12,82,0.24)",
+  },
   scrollArea: { flex: 1 },
   errBar: {
     backgroundColor: "rgba(220,38,38,0.08)",
@@ -809,6 +1205,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     position: "relative",
     overflow: "hidden",
+    backgroundColor: "#312FB8",
   },
   hc1: {
     position: "absolute",
@@ -817,7 +1214,7 @@ const s = StyleSheet.create({
     width: 130,
     height: 130,
     borderRadius: 65,
-    backgroundColor: "rgba(49,47,184,0.05)",
+    backgroundColor: "rgba(255,255,255,0.16)",
   },
   hc2: {
     position: "absolute",
@@ -826,7 +1223,7 @@ const s = StyleSheet.create({
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: "rgba(49,47,184,0.04)",
+    backgroundColor: "rgba(17,13,78,0.34)",
   },
   avatarWrap: { position: "relative", marginBottom: 14 },
   avatar: { width: 86, height: 86, borderRadius: 24, alignItems: "center", justifyContent: "center" },
@@ -850,11 +1247,11 @@ const s = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  heroName: { fontSize: 20, fontWeight: "900", color: "#1a1a2e", letterSpacing: -0.3 },
-  heroSub: { fontSize: 13, color: "#888", fontWeight: "500", marginTop: 4, textTransform: "capitalize" },
+  heroName: { fontSize: 20, fontWeight: "900", color: "#fff", letterSpacing: -0.3 },
+  heroSub: { fontSize: 13, color: "rgba(235,233,255,0.82)", fontWeight: "500", marginTop: 4, textTransform: "capitalize" },
   heroBioWrap: { marginTop: 14, minHeight: 36, width: "100%" },
-  heroBio: { minHeight: 36, fontSize: 13, lineHeight: 18, color: "#5f6478", textAlign: "center", paddingHorizontal: 20 },
-  heroBioMuted: { color: "#b3b7c6" },
+  heroBio: { minHeight: 36, fontSize: 13, lineHeight: 18, color: "rgba(255,255,255,0.88)", textAlign: "center", paddingHorizontal: 20 },
+  heroBioMuted: { color: "rgba(220,217,255,0.64)" },
   heroBioInput: {
     minHeight: 60,
     maxHeight: 60,
@@ -877,10 +1274,10 @@ const s = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "rgba(49,47,184,0.16)",
-    backgroundColor: "#F2F1FF",
+    borderColor: "rgba(255,255,255,0.24)",
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
-  heroBioActionTxt: { fontSize: 11, fontWeight: "700", color: "#312FB8" },
+  heroBioActionTxt: { fontSize: 11, fontWeight: "700", color: "#fff" },
   savedStateBtn: { backgroundColor: "#DFF7E8", borderColor: "#BDE8CD" },
   savedStateBtnText: { fontSize: 12, fontWeight: "700", color: "#0A7A3E" },
 
@@ -1109,6 +1506,4 @@ const ms = StyleSheet.create({
   eyeBtn: { position: "absolute", right: 14, top: 16 },
   textarea: { height: 100, paddingTop: 14, paddingBottom: 14 },
 });
-
-
 

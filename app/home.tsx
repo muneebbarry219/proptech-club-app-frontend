@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Image
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Image as ExpoImage } from "expo-image";
-import { CalendarDays, BriefcaseBusiness, LockKeyhole, Users, Crown } from "lucide-react-native";
+import { CalendarDays, Users } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import AppShell from "../components/layout/AppShell";
 import AuthRequiredModal from "../components/modals/AuthRequiredModal";
@@ -31,13 +31,10 @@ const ACTION_CARDS: Array<{
   title: string;
   route: string;
   Icon: typeof CalendarDays;
-  premium?: boolean;
 }> = [
-    { label: "Plan your next meetup", title: "Upcoming Events", route: "/events", Icon: CalendarDays },
-    { label: "Explore active listings", title: "Featured Deals", route: "/deals", Icon: BriefcaseBusiness },
-    { label: "Enter private access", title: "Elite Room", route: "/rooms", Icon: LockKeyhole, premium: true },
-    { label: "Grow your network", title: "Connect Members", route: "/members", Icon: Users },
-  ];
+  { label: "Plan your next meetup", title: "Upcoming Events", route: "/events", Icon: CalendarDays },
+  { label: "Grow your network", title: "Connect Members", route: "/members", Icon: Users },
+];
 
 function greeting() {
   const hour = new Date().getHours();
@@ -108,13 +105,6 @@ export default function HomeScreen() {
               />
               <View style={s.actionCircleLg} />
               <View style={s.actionCircleSm} />
-              {card.premium ? (
-                <View style={s.premiumCorner}>
-                  <View style={s.premiumCornerInner}>
-                    <Crown size={14} color="#FFD95A" strokeWidth={2.2} />
-                  </View>
-                </View>
-              ) : null}
               <View style={s.actionIconWrap}>
                 <card.Icon size={18} color="#FFFFFF" strokeWidth={2} />
               </View>
@@ -214,34 +204,6 @@ const s = StyleSheet.create({
     letterSpacing: -0.4,
     marginTop: 10,
   },
-  premiumCorner: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    width: 40,
-    height: 40,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderBottomLeftRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  premiumCornerInner: {
-    width: 24,
-    height: 24,
-    marginTop: -5,
-    marginRight: -5,
-    backgroundColor: "rgba(17,12,62,0.28)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.25)",
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    elevation: 3,
-  },
   insightsSection: { marginTop: 28 },
   insightsHeading: {
     fontSize: 24,
@@ -250,6 +212,7 @@ const s = StyleSheet.create({
     marginBottom: 14,
     paddingHorizontal: 16,
     letterSpacing: -0.4,
+    fontFamily: "arp-display",
   },
   insightsScrollContent: {
     paddingHorizontal: 16,

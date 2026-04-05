@@ -7,7 +7,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react-native";
-import { useAuth } from "../../context/AuthContext";
+import DiscardSignupModal from "../../components/modals/DiscardSignupModal";
+import { setPendingSignupDraft } from "../../utils/pending-signup";
 
 
 const COUNTRY_CODES = [
@@ -21,7 +22,6 @@ const COUNTRY_CODES = [
 export default function SignUpScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { signUp } = useAuth();
 
   const [fullName, setFullName] = useState("");
   const [countryCode, setCountryCode] = useState("+92");
@@ -33,6 +33,8 @@ export default function SignUpScreen() {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [pendingLeaveTarget, setPendingLeaveTarget] = useState<(() => void) | null>(null);
 
   const selectedCountry = COUNTRY_CODES.find(c => c.code === countryCode) ?? COUNTRY_CODES[0];
   const fullPhone = `${countryCode} ${phone.trim()}`;
@@ -61,30 +63,54 @@ export default function SignUpScreen() {
     return "";
   };
 
+  const hasDraft =
+    !!fullName.trim() ||
+    !!phone.trim() ||
+    !!emailTrimmed ||
+    !!password ||
+    !!confirmPassword;
+
+  const handleLeaveAttempt = (next: () => void) => {
+    if (!hasDraft || loading) {
+      next();
+      return;
+    }
+
+    setPendingLeaveTarget(() => next);
+    setShowDiscardModal(true);
+  };
+
+  const handleDiscardDetails = () => {
+    setShowDiscardModal(false);
+    const next = pendingLeaveTarget;
+    setPendingLeaveTarget(null);
+    next?.();
+  };
+
   const handleCreateAccount = async () => {
     const err = validate();
     if (err) { setError(err); return; }
 
     setLoading(true);
     setError("");
-
-    const result = await signUp(email.trim().toLowerCase(), password);
-    setLoading(false);
-
-    if (result.error) {
-      console.error("[SignUpScreen] Create Account failed:", result.error);
-      setError(result.error);
-      return;
-    }
-
-    // Pass collected data to profile setup via route params
-    router.replace({
-      pathname: "/auth/profile",
-      params: {
+    try {
+      await setPendingSignupDraft({
         fullName: fullName.trim(),
         whatsapp: fullPhone,
-      },
-    });
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      router.replace({
+        pathname: "/auth/profile",
+        params: { mode: "complete-signup" },
+      });
+    } catch (draftError) {
+      console.error("[SignUpScreen] Failed to store signup draft:", draftError);
+      setError("Could not continue signup right now. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -102,7 +128,7 @@ export default function SignUpScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <TouchableOpacity onPress={() => router.back()} style={s.back}>
+          <TouchableOpacity onPress={() => handleLeaveAttempt(() => router.back())} style={s.back}>
             <ArrowLeft size={18} color="#fff" strokeWidth={2.4} />
           </TouchableOpacity>
 
@@ -238,7 +264,7 @@ export default function SignUpScreen() {
               >
                 {loading
                   ? <ActivityIndicator color="#fff" />
-                  : <Text style={s.submitText}>Create Account</Text>
+                  : <Text style={s.submitText}>Continue</Text>
                 }
               </LinearGradient>
             </TouchableOpacity>
@@ -247,12 +273,20 @@ export default function SignUpScreen() {
           {/* Footer */}
           <View style={s.footer}>
             <Text style={s.footerText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => router.push("/auth/sign-in" as any)}>
+            <TouchableOpacity onPress={() => handleLeaveAttempt(() => router.push("/auth/sign-in" as any))}>
               <Text style={s.footerLink}>Sign in</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <DiscardSignupModal
+        visible={showDiscardModal}
+        onStay={() => {
+          setShowDiscardModal(false);
+          setPendingLeaveTarget(null);
+        }}
+        onDiscard={handleDiscardDetails}
+      />
     </LinearGradient>
   );
 }

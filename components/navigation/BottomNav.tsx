@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter, usePathname } from "expo-router";
-import { Home, BriefcaseBusiness, Users, MessagesSquare } from "lucide-react-native";
+import { Home, CalendarDays, Users, MessagesSquare } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../../context/AuthContext";
+import AuthRequiredModal from "../modals/AuthRequiredModal";
 
 const ITEMS = [
   { key: "home", route: "/home", Icon: Home, label: "Home" },
-  { key: "deals", route: "/deals", Icon: BriefcaseBusiness, label: "My Deals" },
+  { key: "events", route: "/events", Icon: CalendarDays, label: "Events" },
   { key: "members", route: "/members", Icon: Users, label: "Members" },
   { key: "messages", route: "/rooms", Icon: MessagesSquare, label: "Messages" },
 ];
@@ -14,36 +17,50 @@ export default function BottomNav() {
   const router   = useRouter();
   const pathname = usePathname();
   const insets   = useSafeAreaInsets();
+  const { isAuthenticated } = useAuth();
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
 
   const isActive = (route: string) => {
     if (route === "/home") return pathname === "/home";
     return pathname.startsWith(route);
   };
 
+  const handlePress = (route: string) => {
+    if (route === "/members" && !isAuthenticated) {
+      setShowAuthPrompt(true);
+      return;
+    }
+
+    router.push(route as any);
+  };
+
   return (
-    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-      {ITEMS.map(({ key, route, Icon, label }) => {
-        const active = isActive(route);
-        return (
-          <TouchableOpacity
-            key={key}
-            onPress={() => router.push(route as any)}
-            style={styles.item}
-            activeOpacity={0.7}
-          >
-            <Icon
-              size={22}
-              color={active ? "#312FB8" : "#aaaaaa"}
-              strokeWidth={active ? 2.2 : 1.8}
-            />
-            <Text style={[styles.label, active && styles.labelActive]}>
-              {label}
-            </Text>
-            {active && <View style={styles.dot} />}
-          </TouchableOpacity>
-        );
-      })}
-    </View>
+    <>
+      <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        {ITEMS.map(({ key, route, Icon, label }) => {
+          const active = isActive(route);
+          return (
+            <TouchableOpacity
+              key={key}
+              onPress={() => handlePress(route)}
+              style={styles.item}
+              activeOpacity={0.7}
+            >
+              <Icon
+                size={22}
+                color={active ? "#312FB8" : "#aaaaaa"}
+                strokeWidth={active ? 2.2 : 1.8}
+              />
+              <Text style={[styles.label, active && styles.labelActive]}>
+                {label}
+              </Text>
+              {active && <View style={styles.dot} />}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      <AuthRequiredModal visible={showAuthPrompt} onClose={() => setShowAuthPrompt(false)} />
+    </>
   );
 }
 
