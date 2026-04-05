@@ -3,7 +3,6 @@
     "name": "PropTech Club",
     "slug": "proptech-club",
     "version": "1.0.0",
-    "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "proptechclub",
@@ -19,9 +18,19 @@
       "bundler": "metro",
       "output": "static"
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "93908231-c182-44fa-ac79-3870283ca446"
+      }
+    },
+    "owner": "atifbackup61"
   }
 }

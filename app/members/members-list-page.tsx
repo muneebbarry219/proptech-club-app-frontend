@@ -1,39 +1,47 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  TextInput,
   ActivityIndicator,
-  RefreshControl,
   Alert,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Search, X, Users, Check, Clock3, UserPlus, MessageCircle } from "lucide-react-native";
-import { useAuth, type UserRole } from "../../context/AuthContext";
+import { Check, Clock3, MessageCircle, Search, UserPlus, Users, X } from "lucide-react-native";
 import AppShell from "../../components/layout/AppShell";
 import AuthRequiredModal from "../../components/modals/AuthRequiredModal";
 import ConnectionActionModal from "../../components/modals/ConnectionActionModal";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../../constants/supabase";
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../../constants/supabase";
+import { useAuth, type UserRole } from "../../context/AuthContext";
 
 type ConnectionStatus = "none" | "pending_sent" | "pending_received" | "connected";
 
-interface Member {
+interface MemberRowData {
   id: string;
   full_name: string;
   role: UserRole;
   company: string | null;
   location: string;
   is_verified: boolean;
-  whatsapp: string | null;
-  current_focus: string | null;
+}
+
+interface Member extends MemberRowData {
   connectionStatus: ConnectionStatus;
   connectionId: string | null;
 }
 
-const ROLE_COLORS: Record<string, string> = {
+interface ConnectionRecord {
+  id: string;
+  requester_id: string;
+  receiver_id: string;
+  status: "pending" | "accepted" | "declined";
+}
+
+const ROLE_COLORS: Record<UserRole, string> = {
   developer: "#312FB8",
   investor: "#0F6E56",
   broker: "#854F0B",
@@ -41,7 +49,7 @@ const ROLE_COLORS: Record<string, string> = {
   tech: "#185FA5",
 };
 
-const ROLE_FILTERS: { label: string; value: UserRole | "all" }[] = [
+const ROLE_FILTERS: Array<{ label: string; value: UserRole | "all" }> = [
   { label: "All", value: "all" },
   { label: "Developer", value: "developer" },
   { label: "Investor", value: "investor" },
@@ -68,7 +76,11 @@ function publicFetch(path: string) {
   });
 }
 
-function findConnectionForMember(connections: any[], currentUserId: string, memberId: string) {
+function findConnectionForMember(
+  connections: ConnectionRecord[],
+  currentUserId: string,
+  memberId: string
+) {
   return connections.find(
     (item) =>
       (item.requester_id === currentUserId && item.receiver_id === memberId) ||
@@ -82,10 +94,6 @@ function pendingRequestDeletePath(currentUserId: string, memberId: string) {
 
 function receivedRequestDeletePath(currentUserId: string, memberId: string) {
   return `/connections?requester_id=eq.${memberId}&receiver_id=eq.${currentUserId}&status=eq.pending`;
-}
-
-function connectionDeletePath(currentUserId: string, memberId: string) {
-  return `/connections?or=(and(requester_id.eq.${currentUserId},receiver_id.eq.${memberId}),and(requester_id.eq.${memberId},receiver_id.eq.${currentUserId}))`;
 }
 
 function MemberRow({
@@ -108,78 +116,81 @@ function MemberRow({
   const color = ROLE_COLORS[member.role] ?? "#312FB8";
   const isConnected = member.connectionStatus === "connected";
   const isPending = member.connectionStatus === "pending_sent" || member.connectionStatus === "pending_received";
+  const metaText = [
+    member.role.charAt(0).toUpperCase() + member.role.slice(1),
+    member.company || "No company added",
+    member.location.charAt(0).toUpperCase() + member.location.slice(1),
+  ].join(" | ");
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={[s.row, isConnected && s.rowConnected]}>
-      <View style={[s.avatar, { backgroundColor: color }]}>
-        <Text style={s.avatarTxt}>{initials(member.full_name)}</Text>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={[styles.row, isConnected && styles.rowConnected]}>
+      <View style={[styles.avatar, { backgroundColor: color }]}>
+        <Text style={styles.avatarTxt}>{initials(member.full_name)}</Text>
         {isConnected ? (
-          <View style={s.connDot}>
+          <View style={styles.connDot}>
             <Check size={8} color="#FFFFFF" strokeWidth={3} />
           </View>
         ) : member.connectionStatus === "pending_sent" ? (
-          <View style={s.pendingDot}>
+          <View style={styles.pendingDot}>
             <Clock3 size={8} color="#FFFFFF" strokeWidth={2.8} />
           </View>
         ) : null}
       </View>
 
-      <View style={s.info}>
-        <Text style={s.name} numberOfLines={1}>
+      <View style={styles.info}>
+        <Text style={styles.name} numberOfLines={1}>
           {member.full_name}
         </Text>
-        <Text style={s.meta} numberOfLines={1}>
-          {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-          {` · ${member.company || "No company added"}`}
-          {` · ${member.location.charAt(0).toUpperCase() + member.location.slice(1)}`}
+        <Text style={styles.meta} numberOfLines={1}>
+          {metaText}
         </Text>
 
-        <View style={s.badges}>
+        <View style={styles.badges}>
           {isConnected ? (
-            <View style={s.badgeConn}>
-              <Text style={s.badgeConnTxt}>Connected</Text>
+            <View style={styles.badgeConn}>
+              <Text style={styles.badgeConnTxt}>Connected</Text>
             </View>
           ) : null}
 
           {isPending && member.connectionStatus === "pending_received" ? (
-            <View style={s.badgePend}>
-              <Text style={s.badgePendTxt}>Wants to connect</Text>
+            <View style={styles.badgePend}>
+              <Text style={styles.badgePendTxt}>Wants to connect</Text>
             </View>
           ) : null}
 
           {member.is_verified ? (
-            <View style={s.badgeVer}>
-              <Text style={s.badgeVerTxt}>Verified</Text>
+            <View style={styles.badgeVer}>
+              <Text style={styles.badgeVerTxt}>Verified</Text>
             </View>
           ) : null}
         </View>
       </View>
 
       {isConnected ? (
-        <TouchableOpacity onPress={onMessage} style={s.btnMessage} activeOpacity={0.8}>
+        <TouchableOpacity onPress={onMessage} style={styles.btnMessage} activeOpacity={0.8}>
           <MessageCircle size={14} color="#0F6E56" strokeWidth={2.2} />
-          <Text style={s.btnMessageTxt}>Message</Text>
+          <Text style={styles.btnMessageTxt}>Message</Text>
         </TouchableOpacity>
       ) : isPending ? (
         member.connectionStatus === "pending_sent" ? (
-          <TouchableOpacity onPress={onCancel} style={s.btnPend} activeOpacity={0.8}>
+          <TouchableOpacity onPress={onCancel} style={styles.btnPend} activeOpacity={0.8}>
             <X size={14} color="#8C5B16" strokeWidth={2.4} />
-            <Text style={s.btnPendTxt}>Cancel Request</Text>
+            <Text style={styles.btnPendTxt}>Cancel Request</Text>
           </TouchableOpacity>
         ) : (
-          <View style={s.pendingDecisionWrap}>
-            <TouchableOpacity onPress={onDecline} style={s.btnDeclineRequest} activeOpacity={0.8}>
+          <View style={styles.pendingDecisionWrap}>
+            <TouchableOpacity onPress={onDecline} style={styles.btnDeclineRequest} activeOpacity={0.8}>
               <X size={14} color="#B42318" strokeWidth={2.4} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={onAccept} style={s.btnAcceptRequest} activeOpacity={0.8}>
+            <TouchableOpacity onPress={onAccept} style={styles.btnAcceptRequest} activeOpacity={0.8}>
               <Check size={14} color="#0F6E56" strokeWidth={2.8} />
             </TouchableOpacity>
           </View>
         )
       ) : (
-        <TouchableOpacity onPress={onAdd} style={s.btnAdd} activeOpacity={0.8}>
+        <TouchableOpacity onPress={onAdd} style={styles.btnAdd} activeOpacity={0.8}>
           <UserPlus size={14} color="#312FB8" strokeWidth={2.3} />
-          <Text style={s.btnAddTxt}>Connect</Text>
+          <Text style={styles.btnAddTxt}>Connect</Text>
         </TouchableOpacity>
       )}
     </TouchableOpacity>
@@ -188,21 +199,21 @@ function MemberRow({
 
 function EmptyState({ tab }: { tab: "all" | "connected" }) {
   return (
-    <View style={s.empty}>
-      <View style={s.emptyIconWrap}>
-        <View style={s.emptyIconCircleLg} />
-        <View style={s.emptyIconCircleSm} />
-        <View style={s.emptyIconInner}>
+    <View style={styles.empty}>
+      <View style={styles.emptyIconWrap}>
+        <View style={styles.emptyIconCircleLg} />
+        <View style={styles.emptyIconCircleSm} />
+        <View style={styles.emptyIconInner}>
           <Users size={20} color="#312FB8" strokeWidth={2.1} />
         </View>
         {tab === "connected" ? (
-          <View style={s.emptyIconBadge}>
+          <View style={styles.emptyIconBadge}>
             <Check size={11} color="#FFFFFF" strokeWidth={3} />
           </View>
         ) : null}
       </View>
-      <Text style={s.emptyTitle}>{tab === "connected" ? "No connections yet" : "No members found"}</Text>
-      <Text style={s.emptySub}>
+      <Text style={styles.emptyTitle}>{tab === "connected" ? "No connections yet" : "No members found"}</Text>
+      <Text style={styles.emptySub}>
         {tab === "connected"
           ? "Go to All Members and send connection requests to start building your network."
           : "Try adjusting your search or filters."}
@@ -235,17 +246,17 @@ export default function MembersScreen() {
 
     try {
       const profilesRes = await publicFetch(
-        `/profiles?id=neq.${user.id}&select=id,full_name,role,company,location,is_verified,whatsapp,current_focus&order=created_at.desc`
+        `/profiles?id=neq.${user.id}&select=id,full_name,role,company,location,is_verified&order=created_at.desc`
       );
 
       if (!profilesRes.ok) return;
 
-      const profiles: Omit<Member, "connectionStatus" | "connectionId">[] = await profilesRes.json();
+      const profiles: MemberRowData[] = await profilesRes.json();
 
       const connRes = await apiFetch(
         `/connections?or=(requester_id.eq.${user.id},receiver_id.eq.${user.id})&select=id,requester_id,receiver_id,status`
       );
-      const connections = connRes.ok ? await connRes.json() : [];
+      const connections: ConnectionRecord[] = connRes.ok ? await connRes.json() : [];
 
       const mapped: Member[] = profiles.map((profile) => {
         const connection = findConnectionForMember(connections, user.id, profile.id);
@@ -289,7 +300,7 @@ export default function MembersScreen() {
   if (!isLoading && !isAuthenticated) {
     return (
       <AppShell>
-        <View style={s.gateScreen}>
+        <View style={styles.gateScreen}>
           <AuthRequiredModal visible onClose={() => router.replace("/home" as any)} />
         </View>
       </AppShell>
@@ -297,24 +308,28 @@ export default function MembersScreen() {
   }
 
   const handleAdd = async (member: Member) => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user) {
       router.push("/auth/sign-in" as any);
       return;
     }
 
-    setMembers((prev) => prev.map((item) => (item.id === member.id ? { ...item, connectionStatus: "pending_sent" } : item)));
+    setMembers((prev) =>
+      prev.map((item) => (item.id === member.id ? { ...item, connectionStatus: "pending_sent" } : item))
+    );
 
     const res = await apiFetch("/connections", {
       method: "POST",
       body: JSON.stringify({
-        requester_id: user!.id,
+        requester_id: user.id,
         receiver_id: member.id,
         status: "pending",
       }),
     });
 
     if (!res.ok) {
-      setMembers((prev) => prev.map((item) => (item.id === member.id ? { ...item, connectionStatus: "none" } : item)));
+      setMembers((prev) =>
+        prev.map((item) => (item.id === member.id ? { ...item, connectionStatus: "none" } : item))
+      );
       Alert.alert("Error", "Could not send request. Please try again.");
       return;
     }
@@ -325,7 +340,9 @@ export default function MembersScreen() {
   const handleAccept = async (member: Member) => {
     if (!member.connectionId) return;
 
-    setMembers((prev) => prev.map((item) => (item.id === member.id ? { ...item, connectionStatus: "connected" } : item)));
+    setMembers((prev) =>
+      prev.map((item) => (item.id === member.id ? { ...item, connectionStatus: "connected" } : item))
+    );
 
     const res = await apiFetch(`/connections?id=eq.${member.connectionId}`, {
       method: "PATCH",
@@ -334,9 +351,7 @@ export default function MembersScreen() {
 
     if (!res.ok) {
       setMembers((prev) =>
-        prev.map((item) =>
-          item.id === member.id ? { ...item, connectionStatus: "pending_received" } : item
-        )
+        prev.map((item) => (item.id === member.id ? { ...item, connectionStatus: "pending_received" } : item))
       );
       Alert.alert("Error", "Could not accept request. Please try again.");
       return;
@@ -354,6 +369,7 @@ export default function MembersScreen() {
 
     const member = cancelTarget;
     setCancelTarget(null);
+
     setMembers((prev) =>
       prev.map((item) =>
         item.id === member.id ? { ...item, connectionStatus: "none", connectionId: null } : item
@@ -377,10 +393,6 @@ export default function MembersScreen() {
     }
 
     await load();
-  };
-
-  const handleMessage = (member: Member) => {
-    router.push(`/messages/${member.id}` as any);
   };
 
   const handleDeclineReceived = async (member: Member) => {
@@ -411,41 +423,8 @@ export default function MembersScreen() {
     await load();
   };
 
-  const handleDisconnect = (member: Member) => {
-    if (!user) return;
-
-    Alert.alert("Disconnect", `Remove ${member.full_name} from your connections?`, [
-      { text: "Keep", style: "cancel" },
-      {
-        text: "Disconnect",
-        style: "destructive",
-        onPress: async () => {
-          setMembers((prev) =>
-            prev.map((item) =>
-              item.id === member.id ? { ...item, connectionStatus: "none", connectionId: null } : item
-            )
-          );
-
-          const res = await apiFetch(connectionDeletePath(user.id, member.id), {
-            method: "DELETE",
-          });
-
-          if (!res.ok) {
-            setMembers((prev) =>
-              prev.map((item) =>
-                item.id === member.id
-                  ? { ...item, connectionStatus: "connected", connectionId: member.connectionId }
-                  : item
-              )
-            );
-            Alert.alert("Error", "Could not disconnect right now. Please try again.");
-            return;
-          }
-
-          await load();
-        },
-      },
-    ]);
+  const handleMessage = (member: Member) => {
+    router.push(`/messages/${member.id}` as any);
   };
 
   const filtered = members.filter((member) => {
@@ -477,36 +456,36 @@ export default function MembersScreen() {
 
   return (
     <AppShell>
-      <View style={s.container}>
-        <View style={s.stickyHead}>
-          <View style={s.masterTabs}>
+      <View style={styles.container}>
+        <View style={styles.stickyHead}>
+          <View style={styles.masterTabs}>
             <TouchableOpacity
               onPress={() => setTab("all")}
-              style={[s.masterTab, tab === "all" && s.masterTabOn]}
+              style={[styles.masterTab, tab === "all" && styles.masterTabOn]}
               activeOpacity={0.8}
             >
-              <Text style={[s.masterTabTxt, tab === "all" && s.masterTabTxtOn]}>All Members</Text>
-              <View style={[s.tabBadge, tab === "all" && s.tabBadgeActive]}>
-                <Text style={[s.tabBadgeTxt, tab === "all" && s.tabBadgeTxtActive]}>{allMembers.length}</Text>
+              <Text style={[styles.masterTabTxt, tab === "all" && styles.masterTabTxtOn]}>All Members</Text>
+              <View style={[styles.tabBadge, tab === "all" && styles.tabBadgeActive]}>
+                <Text style={[styles.tabBadgeTxt, tab === "all" && styles.tabBadgeTxtActive]}>{allMembers.length}</Text>
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => setTab("connected")}
-              style={[s.masterTab, tab === "connected" && s.masterTabOn]}
+              style={[styles.masterTab, tab === "connected" && styles.masterTabOn]}
               activeOpacity={0.8}
             >
-              <Text style={[s.masterTabTxt, tab === "connected" && s.masterTabTxtOn]}>Connected</Text>
-              <View style={[s.tabBadge, tab === "connected" && s.tabBadgeActive]}>
-                <Text style={[s.tabBadgeTxt, tab === "connected" && s.tabBadgeTxtActive]}>{connectedCount}</Text>
+              <Text style={[styles.masterTabTxt, tab === "connected" && styles.masterTabTxtOn]}>Connected</Text>
+              <View style={[styles.tabBadge, tab === "connected" && styles.tabBadgeActive]}>
+                <Text style={[styles.tabBadgeTxt, tab === "connected" && styles.tabBadgeTxtActive]}>{connectedCount}</Text>
               </View>
             </TouchableOpacity>
           </View>
 
-          <View style={s.searchBar}>
+          <View style={styles.searchBar}>
             <Search size={16} color="#AAA" strokeWidth={2} />
             <TextInput
-              style={s.searchInput}
+              style={styles.searchInput}
               value={search}
               onChangeText={setSearch}
               placeholder="Search name, company, role..."
@@ -522,20 +501,22 @@ export default function MembersScreen() {
           </View>
 
           {tab === "all" ? (
-            <View style={s.filterWrap}>
+            <View style={styles.filterWrap}>
               <FlatList
                 data={ROLE_FILTERS}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={(item) => item.value}
-                contentContainerStyle={s.filterList}
+                contentContainerStyle={styles.filterList}
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     onPress={() => setRoleFilter(item.value)}
-                    style={[s.filterChip, roleFilter === item.value && s.filterChipOn]}
+                    style={[styles.filterChip, roleFilter === item.value && styles.filterChipOn]}
                     activeOpacity={0.8}
                   >
-                    <Text style={[s.filterChipTxt, roleFilter === item.value && s.filterChipTxtOn]}>{item.label}</Text>
+                    <Text style={[styles.filterChipTxt, roleFilter === item.value && styles.filterChipTxtOn]}>
+                      {item.label}
+                    </Text>
                   </TouchableOpacity>
                 )}
               />
@@ -544,14 +525,14 @@ export default function MembersScreen() {
         </View>
 
         {loading ? (
-          <View style={s.loader}>
+          <View style={styles.loader}>
             <ActivityIndicator color="#312FB8" size="large" />
           </View>
         ) : (
           <FlatList
             data={displayList}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={s.listContent}
+            contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
@@ -578,6 +559,7 @@ export default function MembersScreen() {
           />
         )}
       </View>
+
       <ConnectionActionModal
         visible={!!cancelTarget}
         title="Cancel Request?"
@@ -590,7 +572,7 @@ export default function MembersScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F8FC" },
   stickyHead: {
     backgroundColor: "#FFFFFF",
@@ -779,9 +761,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
   },
   badgePendTxt: {
     fontSize: 9,
@@ -833,7 +812,12 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  btnMessageTxt: { fontSize: 11, lineHeight: 14, fontWeight: "700", color: "#0F6E56" },
+  btnMessageTxt: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: "700",
+    color: "#0F6E56",
+  },
   btnPend: {
     minHeight: 32,
     borderRadius: 10,
