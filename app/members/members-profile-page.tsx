@@ -390,7 +390,7 @@ export default function MemberProfileScreen() {
         <View style={s.fixedTop}>
           <View style={s.hero}>
             <TouchableOpacity onPress={() => router.back()} style={s.backBtnFloating} activeOpacity={0.8}>
-              <ArrowLeft size={20} color="#312FB8" strokeWidth={2.2} />
+              <ArrowLeft size={18} color="#312FB8" strokeWidth={2.4} />
             </TouchableOpacity>
             <View style={s.hc1} />
             <View style={s.hc2} />
@@ -571,8 +571,6 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(49,47,184,0.08)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(49,47,184,0.12)",
   },
   scrollContent: { paddingBottom: 40 },
   hero: {

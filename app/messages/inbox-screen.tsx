@@ -375,7 +375,7 @@ export default function ChatScreen() {
         {/* ── Header ── */}
         <View style={s.header}>
           <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.8}>
-            <ArrowLeft size={20} color="#1a1a2e" strokeWidth={2.2} />
+            <ArrowLeft size={18} color="#312FB8" strokeWidth={2.4} />
           </TouchableOpacity>
 
           <View style={[s.headerAvatar, { backgroundColor: avatarColor }]}>
@@ -467,7 +467,7 @@ export default function ChatScreen() {
 const s = StyleSheet.create({
   container:          { flex: 1, backgroundColor: "#f8f8fc" },
   header:             { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#fff", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: "rgba(49,47,184,0.08)" },
-  backBtn:            { width: 38, height: 38, borderRadius: 12, backgroundColor: "#f4f4f8", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  backBtn:            { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(49,47,184,0.08)", alignItems: "center", justifyContent: "center", flexShrink: 0 },
   headerAvatar:       { width: 38, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center", flexShrink: 0 },
   headerAvatarTxt:    { color: "#fff", fontSize: 13, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
   headerInfo:         { flex: 1, minWidth: 0 },

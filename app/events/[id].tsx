@@ -449,7 +449,7 @@ export default function EventDetailScreen() {
       {/* Back header */}
       <View style={s.backHdr}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.8}>
-          <ArrowLeft size={20} color="#1A1A2E" strokeWidth={2.2} />
+          <ArrowLeft size={18} color="#312FB8" strokeWidth={2.4} />
         </TouchableOpacity>
         <Text style={s.backTitle} numberOfLines={1}>{event.title}</Text>
         <View style={{ width: 40 }} />
@@ -753,7 +753,7 @@ export default function EventDetailScreen() {
 const s = StyleSheet.create({
   container:        { flex: 1, backgroundColor: "#F8F8FC" },
   backHdr:          { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#FFF", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: "rgba(49,47,184,0.08)" },
-  backBtn:          { width: 40, height: 40, borderRadius: 12, backgroundColor: "#F4F4F8", alignItems: "center", justifyContent: "center" },
+  backBtn:          { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(49,47,184,0.08)", alignItems: "center", justifyContent: "center" },
   backTitle:        { fontSize: 15, fontWeight: "800", color: "#1A1A2E", flex: 1, textAlign: "center" },
   hero:             { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 20 },
   heroBadges:       { flexDirection: "row", gap: 8, marginBottom: 12 },

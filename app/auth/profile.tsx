@@ -26,6 +26,7 @@ import BottomNav from "../../components/navigation/BottomNav";
 import DiscardSignupModal from "../../components/modals/DiscardSignupModal";
 import { AUTH_URL, SUPABASE_ANON_KEY } from "../../constants/supabase";
 import { clearPendingSignupDraft, getPendingSignupDraft, type PendingSignupDraft } from "../../utils/pending-signup";
+import { uploadAvatar } from "../../utils/uploadAvatar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ROLES: { value: UserRole; label: string }[] = [
@@ -514,15 +515,19 @@ export default function ProfileScreen() {
 
   const isCompletingSignup = mode === "complete-signup" || (!isLoading && !!user && !profile);
 
-  const [fullName, setFullName] = useState(profile?.full_name ?? "");
-  const [whatsapp, setWhatsapp] = useState(profile?.whatsapp ?? "");
-  const [company, setCompany] = useState(profile?.company ?? "");
-  const [currentFocus, setCurrentFocus] = useState(profile?.current_focus ?? "");
-  const [bio, setBio] = useState(profile?.bio ?? "");
   const [avatarUri, setAvatarUri] = useState(profile?.avatar_url ?? "");
-  const [role, setRole] = useState<UserRole | null>(profile?.role ?? null);
-  const [lookingFor, setLookingFor] = useState<string[]>(profile?.looking_for ?? []);
-  const [location, setLocation] = useState<UserLocation>(profile?.location ?? "karachi");
+  const [personalDraft, setPersonalDraft] = useState({
+    fullName: profile?.full_name ?? "",
+    whatsapp: profile?.whatsapp ?? "",
+    location: (profile?.location ?? "karachi") as UserLocation,
+  });
+  const [professionalDraft, setProfessionalDraft] = useState({
+    company: profile?.company ?? "",
+    currentFocus: profile?.current_focus ?? "",
+    role: profile?.role ?? null,
+    lookingFor: profile?.looking_for ?? [],
+  });
+  const [bioDraft, setBioDraft] = useState(profile?.bio ?? "");
 
   const [editingPersonal, setEditingPersonal] = useState(false);
   const [editingProfessional, setEditingProfessional] = useState(false);
@@ -566,26 +571,48 @@ export default function ProfileScreen() {
     savedTopBio,
   ]);
 
+  useEffect(() => {
+    if (!profile) return;
+
+    setPersonalDraft({
+      fullName: profile.full_name ?? "",
+      whatsapp: profile.whatsapp ?? "",
+      location: profile.location ?? "karachi",
+    });
+    setProfessionalDraft({
+      company: profile.company ?? "",
+      currentFocus: profile.current_focus ?? "",
+      role: profile.role ?? null,
+      lookingFor: profile.looking_for ?? [],
+    });
+    setBioDraft(profile.bio ?? "");
+    setAvatarUri(profile.avatar_url ?? "");
+  }, [profile]);
+
   const cancelPersonalEdit = () => {
     if (!profile) return;
-    setFullName(profile.full_name ?? "");
-    setWhatsapp(profile.whatsapp ?? "");
-    setLocation(profile.location ?? "karachi");
+    setPersonalDraft({
+      fullName: profile.full_name ?? "",
+      whatsapp: profile.whatsapp ?? "",
+      location: profile.location ?? "karachi",
+    });
     setEditingPersonal(false);
   };
 
   const cancelProfessionalEdit = () => {
     if (!profile) return;
-    setCompany(profile.company ?? "");
-    setRole(profile.role ?? null);
-    setCurrentFocus(profile.current_focus ?? "");
-    setLookingFor(profile.looking_for ?? []);
+    setProfessionalDraft({
+      company: profile.company ?? "",
+      currentFocus: profile.current_focus ?? "",
+      role: profile.role ?? null,
+      lookingFor: profile.looking_for ?? [],
+    });
     setEditingProfessional(false);
   };
 
   const cancelTopBioEdit = () => {
     if (!profile) return;
-    setBio(profile.bio ?? "");
+    setBioDraft(profile.bio ?? "");
     setEditingTopBio(false);
   };
 
@@ -594,9 +621,9 @@ export default function ProfileScreen() {
     setSaveErr("");
 
     const result = await updateProfile({
-      full_name: fullName.trim(),
-      whatsapp: whatsapp.trim() || null,
-      location,
+      full_name: personalDraft.fullName.trim(),
+      whatsapp: personalDraft.whatsapp.trim() || null,
+      location: personalDraft.location,
     });
 
     setSavingPersonal(false);
@@ -610,7 +637,7 @@ export default function ProfileScreen() {
   };
 
   const handleSaveProfessional = async () => {
-    if (!role) {
+    if (!professionalDraft.role) {
       setSaveErr("Please select a role.");
       return;
     }
@@ -619,10 +646,10 @@ export default function ProfileScreen() {
     setSaveErr("");
 
     const result = await updateProfile({
-      company: company.trim() || null,
-      role,
-      current_focus: currentFocus.trim() || null,
-      looking_for: lookingFor,
+      company: professionalDraft.company.trim() || null,
+      role: professionalDraft.role,
+      current_focus: professionalDraft.currentFocus.trim() || null,
+      looking_for: professionalDraft.lookingFor,
     });
 
     setSavingProfessional(false);
@@ -640,7 +667,7 @@ export default function ProfileScreen() {
     setSaveErr("");
 
     const result = await updateProfile({
-      bio: bio.trim() || null,
+      bio: bioDraft.trim() || null,
     });
 
     setSavingTopBio(false);
@@ -654,7 +681,12 @@ export default function ProfileScreen() {
   };
 
   const toggleLookingFor = (item: string) => {
-    setLookingFor((prev) => (prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]));
+    setProfessionalDraft((prev) => ({
+      ...prev,
+      lookingFor: prev.lookingFor.includes(item)
+        ? prev.lookingFor.filter((i) => i !== item)
+        : [...prev.lookingFor, item],
+    }));
   };
 
   const handleSignOut = () => {
@@ -675,50 +707,64 @@ export default function ProfileScreen() {
     setCameraSheetOpen(false);
 
     try {
+      let localUri: string | null = null;
+
       if (mode === "camera") {
-        const cameraPerm = await ImagePicker.requestCameraPermissionsAsync();
-        if (!cameraPerm.granted) {
+        const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!perm.granted) {
           Alert.alert("Permission Needed", "Please allow camera access to take a profile picture.");
           return;
         }
-
         const result = await ImagePicker.launchCameraAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,
           aspect: [1, 1],
           quality: 0.8,
         });
-
         if (result.canceled || !result.assets?.[0]?.uri) return;
-        const nextUri = result.assets[0].uri;
-        setAvatarUri(nextUri);
-        const updateResult = await updateProfile({ avatar_url: nextUri });
-        if (updateResult.error) {
-          Alert.alert("Update Failed", updateResult.error);
+        localUri = result.assets[0].uri;
+      } else {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          Alert.alert("Permission Needed", "Please allow gallery access to choose a profile picture.");
+          return;
         }
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+        });
+        if (result.canceled || !result.assets?.[0]?.uri) return;
+        localUri = result.assets[0].uri;
+      }
+
+      if (!localUri || !user) return;
+
+      setAvatarUri(localUri);
+
+      const token = getAccessToken();
+      if (!token) {
+        Alert.alert("Error", "Not authenticated. Please sign in again.");
         return;
       }
 
-      const galleryPerm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!galleryPerm.granted) {
-        Alert.alert("Permission Needed", "Please allow gallery access to choose a profile picture.");
+      const publicUrl = await uploadAvatar(localUri, user.id, token);
+
+      if (!publicUrl) {
+        Alert.alert("Upload Failed", "Could not upload your picture. Please try again.");
+        setAvatarUri(profile?.avatar_url ?? "");
         return;
       }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (result.canceled || !result.assets?.[0]?.uri) return;
-      const nextUri = result.assets[0].uri;
-      setAvatarUri(nextUri);
-      const updateResult = await updateProfile({ avatar_url: nextUri });
+      const updateResult = await updateProfile({ avatar_url: publicUrl });
       if (updateResult.error) {
         Alert.alert("Update Failed", updateResult.error);
+        setAvatarUri(profile?.avatar_url ?? "");
+        return;
       }
+
+      setAvatarUri(publicUrl);
     } catch {
       Alert.alert("Error", "Unable to open camera/gallery right now. Please try again.");
     }
@@ -731,11 +777,11 @@ export default function ProfileScreen() {
     return <Text style={s.avatarTxt}>{initials(displayName)}</Text>;
   };
 
-  const avatarBg = role ? ROLE_COLORS[role] ?? "#312FB8" : "#312FB8";
-  const displayName = fullName || profile?.full_name || "—";
-  const roleLabel = ROLES.find((r) => r.value === role)?.label ?? "No role";
-  const locLabel = LOCATIONS.find((l) => l.value === location)?.label ?? location;
-  const bioText = bio.trim();
+  const avatarBg = profile?.role ? ROLE_COLORS[profile.role] ?? "#312FB8" : "#312FB8";
+  const displayName = profile?.full_name || "—";
+  const roleLabel = profile?.role ? ROLES.find((r) => r.value === profile.role)?.label ?? "No role" : "No role";
+  const locLabel = LOCATIONS.find((l) => l.value === (profile?.location ?? "karachi"))?.label ?? (profile?.location ?? "karachi");
+  const bioText = (profile?.bio ?? "").trim();
 
   if (isCompletingSignup) {
     return <CompleteSignupFlow existingUser={user} signUp={signUp} createProfile={createProfile} signOut={signOut} />;
@@ -781,8 +827,8 @@ export default function ProfileScreen() {
             {editingTopBio ? (
               <TextInput
                 style={s.heroBioInput}
-                value={bio}
-                onChangeText={setBio}
+                value={bioDraft}
+                onChangeText={setBioDraft}
                 placeholder="Add Bio..."
                 placeholderTextColor="#b3b7c6"
                 maxLength={BIO_MAX_LENGTH}
@@ -857,23 +903,29 @@ export default function ProfileScreen() {
           <View style={s.cardNoIcon}>
             <FieldLabel label="Name" />
             {editingPersonal ? (
-              <TextInput style={s.input} value={fullName} onChangeText={setFullName} placeholder="Full name" placeholderTextColor="#aaa" />
+              <TextInput
+                style={s.input}
+                value={personalDraft.fullName}
+                onChangeText={(value) => setPersonalDraft((prev) => ({ ...prev, fullName: value }))}
+                placeholder="Full name"
+                placeholderTextColor="#aaa"
+              />
             ) : (
-              <Text style={s.valueText}>{fullName || "—"}</Text>
+              <Text style={s.valueText}>{profile?.full_name || "—"}</Text>
             )}
 
             <FieldLabel label="Number" />
             {editingPersonal ? (
               <TextInput
                 style={s.input}
-                value={whatsapp}
-                onChangeText={setWhatsapp}
+                value={personalDraft.whatsapp}
+                onChangeText={(value) => setPersonalDraft((prev) => ({ ...prev, whatsapp: value }))}
                 placeholder="Phone / WhatsApp"
                 placeholderTextColor="#aaa"
                 keyboardType="phone-pad"
               />
             ) : (
-              <Text style={s.valueText}>{whatsapp || "Not set"}</Text>
+              <Text style={s.valueText}>{profile?.whatsapp || "Not set"}</Text>
             )}
 
             <FieldLabel label="Email" />
@@ -883,8 +935,12 @@ export default function ProfileScreen() {
             {editingPersonal ? (
               <View style={s.chipsWrap}>
                 {LOCATIONS.map((l) => (
-                  <TouchableOpacity key={l.value} onPress={() => setLocation(l.value)} style={[s.chip, location === l.value && s.chipOn]}>
-                    <Text style={[s.chipTxt, location === l.value && s.chipTxtOn]}>{l.label}</Text>
+                  <TouchableOpacity
+                    key={l.value}
+                    onPress={() => setPersonalDraft((prev) => ({ ...prev, location: l.value }))}
+                    style={[s.chip, personalDraft.location === l.value && s.chipOn]}
+                  >
+                    <Text style={[s.chipTxt, personalDraft.location === l.value && s.chipTxtOn]}>{l.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -940,17 +996,27 @@ export default function ProfileScreen() {
           <View style={s.cardNoIcon}>
             <FieldLabel label="Company / Organisation" />
             {editingProfessional ? (
-              <TextInput style={s.input} value={company} onChangeText={setCompany} placeholder="Company" placeholderTextColor="#aaa" />
+              <TextInput
+                style={s.input}
+                value={professionalDraft.company}
+                onChangeText={(value) => setProfessionalDraft((prev) => ({ ...prev, company: value }))}
+                placeholder="Company"
+                placeholderTextColor="#aaa"
+              />
             ) : (
-              <Text style={s.valueText}>{company || "Not set"}</Text>
+              <Text style={s.valueText}>{profile?.company || "Not set"}</Text>
             )}
 
             <FieldLabel label="Which category best describes you?" />
             {editingProfessional ? (
               <View style={s.chipsWrap}>
                 {ROLES.map((r) => (
-                  <TouchableOpacity key={r.value} onPress={() => setRole(r.value)} style={[s.chip, role === r.value && s.chipOn]}>
-                    <Text style={[s.chipTxt, role === r.value && s.chipTxtOn]}>{r.label}</Text>
+                  <TouchableOpacity
+                    key={r.value}
+                    onPress={() => setProfessionalDraft((prev) => ({ ...prev, role: r.value }))}
+                    style={[s.chip, professionalDraft.role === r.value && s.chipOn]}
+                  >
+                    <Text style={[s.chipTxt, professionalDraft.role === r.value && s.chipTxtOn]}>{r.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -962,28 +1028,32 @@ export default function ProfileScreen() {
             {editingProfessional ? (
               <TextInput
                 style={[s.input, s.textarea]}
-                value={currentFocus}
-                onChangeText={setCurrentFocus}
+                value={professionalDraft.currentFocus}
+                onChangeText={(value) => setProfessionalDraft((prev) => ({ ...prev, currentFocus: value }))}
                 placeholder="What are you currently focused on?"
                 placeholderTextColor="#aaa"
                 multiline
                 textAlignVertical="top"
               />
             ) : (
-              <Text style={s.valueText}>{currentFocus || "Not set"}</Text>
+              <Text style={s.valueText}>{profile?.current_focus || "Not set"}</Text>
             )}
 
             <FieldLabel label="Looking For" />
             {editingProfessional ? (
               <View style={s.chipsWrap}>
                 {LOOKING_FOR_OPTIONS.map((item) => (
-                  <TouchableOpacity key={item} onPress={() => toggleLookingFor(item)} style={[s.chip, lookingFor.includes(item) && s.chipOn]}>
-                    <Text style={[s.chipTxt, lookingFor.includes(item) && s.chipTxtOn]}>{item}</Text>
+                  <TouchableOpacity
+                    key={item}
+                    onPress={() => toggleLookingFor(item)}
+                    style={[s.chip, professionalDraft.lookingFor.includes(item) && s.chipOn]}
+                  >
+                    <Text style={[s.chipTxt, professionalDraft.lookingFor.includes(item) && s.chipTxtOn]}>{item}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             ) : (
-              <Text style={s.valueText}>{lookingFor.length ? lookingFor.join(", ") : "Not set"}</Text>
+              <Text style={s.valueText}>{profile?.looking_for?.length ? profile.looking_for.join(", ") : "Not set"}</Text>
             )}
           </View>
         </View>

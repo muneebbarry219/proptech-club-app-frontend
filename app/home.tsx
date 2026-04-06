@@ -1,42 +1,29 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Image as ExpoImage } from "expo-image";
-import { ArrowRight, CalendarDays, Users } from "lucide-react-native";
+import { ArrowRight, CalendarDays, PenLine, Users } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import AppShell from "../components/layout/AppShell";
 import AuthRequiredModal from "../components/modals/AuthRequiredModal";
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../constants/supabase";
 
 const { width } = Dimensions.get("window");
 const HERO_IMAGE = "https://images.unsplash.com/photo-1571917687771-094c2a557ed4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080";
+const ADMIN_USER_ID = "59a93ce0-0570-4f71-897a-162b72decf7e";
 
-const INSIGHTS = [
-  {
-    label: "KARACHI | THIS WEEK",
-    text: "DHA Phase 8 commercial plots are seeing 12% price appreciation YoY, driven by overseas Pakistani investors.",
-    source: "PropTech Club Research | 2026",
-    image: "https://images.unsplash.com/photo-1460317442991-0ec209397118?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600",
-  },
-  {
-    label: "GCC CORRIDOR",
-    text: "UAE-based Pakistanis increased remittance-backed real estate investment by 34% in Q4 2025.",
-    source: "PropTech Club Research | 2026",
-    image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600",
-  },
-  {
-    label: "ISLAMABAD | CAPITAL WATCH",
-    text: "Mixed-use inventory near the new expressway is tightening as builders respond to stronger corporate leasing demand.",
-    source: "PropTech Club Research | 2026",
-    image: "https://images.unsplash.com/photo-1494526585095-c41746248156?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600",
-  },
-  {
-    label: "LAHORE | DEVELOPMENT DESK",
-    text: "Mid-rise residential launches in DHA and Gulberg are seeing faster pre-bookings as end-user sentiment improves.",
-    source: "PropTech Club Research | 2026",
-    image: "https://images.unsplash.com/photo-1511818966892-d7d671e672a2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600",
-  },
-];
+interface ArticleInsight {
+  id: string;
+  label: string;
+  text: string;
+  source: string;
+  image: string;
+  body: string;
+  excerpt?: string | null;
+  publishedAt?: string;
+  isDbArticle?: boolean;
+}
 
 const ACTION_CARDS: Array<{
   label: string;
@@ -57,8 +44,66 @@ function greeting() {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { profile, isAuthenticated } = useAuth();
+  const { profile, isAuthenticated, user } = useAuth();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [insights, setInsights] = useState<ArticleInsight[]>([]);
+  const isAdmin = isAuthenticated && user?.id === ADMIN_USER_ID;
+
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/articles?is_published=eq.true&order=published_at.desc&limit=6&select=id,title,excerpt,body,cover_url,tags,published_at,profiles!author_id(full_name)`,
+          {
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+          }
+        );
+
+        if (!res.ok) {
+          if (active) setInsights([]);
+          return;
+        }
+        const rows = await res.json();
+        if (!active || !Array.isArray(rows)) return;
+
+        if (!rows.length) {
+          setInsights([]);
+          return;
+        }
+
+        setInsights(
+          rows.map((article: any) => ({
+            id: article.id,
+            label:
+              article.tags?.[0]?.toUpperCase() ||
+              `ARTICLE | ${new Date(article.published_at).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+              }).toUpperCase()}`,
+            text: article.title,
+            excerpt: article.excerpt ?? null,
+            source: article.profiles?.full_name ?? "PropTech Club",
+            image: article.cover_url || HERO_IMAGE,
+            body: article.body ?? article.excerpt ?? article.title,
+            publishedAt: article.published_at,
+            isDbArticle: true,
+          }))
+        );
+      } catch (error) {
+        console.warn("[Home] articles load error", error);
+        if (active) setInsights([]);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleProtectedPress = (route: string) => {
     if (!isAuthenticated) {
@@ -129,20 +174,59 @@ export default function HomeScreen() {
         </View>
 
         <View style={s.insightsSection}>
-          <Text style={s.insightsHeading}>Hot News From The Market</Text>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.insightsScrollContent}>
-            {INSIGHTS.map((insight, index) => (
-              <TouchableOpacity key={index} style={s.insightCard} activeOpacity={0.9} onPress={() => handleProtectedPress("/auth/sign-in")}>
-                <View style={s.insightRow}>
-                  <View style={s.insightCopy}>
-                    <Text style={s.insLabel} numberOfLines={1}>{insight.label}</Text>
-                    <Text style={s.insText} numberOfLines={2} ellipsizeMode="tail">{insight.text}</Text>
-                    <Text style={s.insSource} numberOfLines={1}>{insight.source}</Text>
-                  </View>
-                  <ExpoImage source={{ uri: insight.image }} style={s.insightImage} contentFit="cover" />
-                </View>
+          <View style={s.insightsHeader}>
+            <Text style={s.insightsHeading}>Hot News From The Market</Text>
+            {isAdmin ? (
+              <TouchableOpacity
+                onPress={() => router.push("/articles/write" as any)}
+                activeOpacity={0.85}
+                style={s.insightsAdminBtn}
+              >
+                <PenLine size={14} color="#312FB8" strokeWidth={2.1} />
+                <Text style={s.insightsAdminBtnTxt}>Add</Text>
               </TouchableOpacity>
-            ))}
+            ) : null}
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.insightsScrollContent}>
+            {insights.length ? (
+              insights.map((insight) => (
+                <TouchableOpacity
+                  key={insight.id}
+                  style={s.insightCard}
+                  activeOpacity={0.9}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/articles/[id]",
+                      params: {
+                        id: insight.id,
+                        title: insight.text,
+                        excerpt: insight.excerpt ?? insight.label,
+                        body: insight.body,
+                        cover_url: insight.image,
+                        author: insight.source,
+                        published_at: insight.publishedAt ?? "2026-04-06T00:00:00.000Z",
+                      },
+                    } as any)
+                  }
+                >
+                  <View style={s.insightRow}>
+                    <View style={s.insightCopy}>
+                      <Text style={s.insLabel} numberOfLines={1}>{insight.label}</Text>
+                      <Text style={s.insText} numberOfLines={2} ellipsizeMode="tail">{insight.text}</Text>
+                      <Text style={s.insSource} numberOfLines={1}>{insight.source}</Text>
+                    </View>
+                    <ExpoImage source={{ uri: insight.image }} style={s.insightImage} contentFit="cover" />
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={s.insightsEmpty}>
+                <Text style={s.insightsEmptyTitle}>No articles published yet</Text>
+                <Text style={s.insightsEmptyText}>
+                  {isAdmin ? "Use Add to publish the first article." : "Check back soon for market updates."}
+                </Text>
+              </View>
+            )}
           </ScrollView>
         </View>
       </View>
@@ -225,14 +309,37 @@ const s = StyleSheet.create({
     marginLeft: 3,
   },
   insightsSection: { flex: 1, marginTop: 28 },
+  insightsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    marginBottom: 14,
+  },
   insightsHeading: {
     fontSize: 23,
     fontFamily: "Outfit_700Bold",
     color: "#121426",
-    marginBottom: 14,
-    paddingHorizontal: 16,
     letterSpacing: -0.5,
     marginLeft: 2,
+    flex: 1,
+  },
+  insightsAdminBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: "#EEEDFE",
+    borderWidth: 1,
+    borderColor: "rgba(49,47,184,0.14)",
+  },
+  insightsAdminBtnTxt: {
+    fontSize: 12,
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
+    color: "#312FB8",
   },
   insightsScrollContent: {
     paddingHorizontal: 16,
@@ -290,5 +397,29 @@ const s = StyleSheet.create({
     height: 82,
     borderRadius: 14,
     backgroundColor: "#e9ecf7",
+  },
+  insightsEmpty: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 0.5,
+    borderColor: "rgba(49,47,184,0.08)",
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 122,
+  },
+  insightsEmptyTitle: {
+    fontSize: 15,
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
+    color: "#121426",
+    marginBottom: 6,
+  },
+  insightsEmptyText: {
+    fontSize: 13,
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
+    color: "#7B8196",
+    textAlign: "center",
   },
 });
