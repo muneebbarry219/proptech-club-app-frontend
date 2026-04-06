@@ -1,5 +1,4 @@
 import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { Clock3, X } from "lucide-react-native";
 
 interface ConnectionActionModalProps {
@@ -27,18 +26,13 @@ export default function ConnectionActionModal({
             <X size={14} color="#72768B" strokeWidth={2.2} />
           </TouchableOpacity>
 
-          <LinearGradient
-            colors={["#F7F3FF", "#F2EDFF"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={s.header}
-          >
+          <View style={s.header}>
             <View style={s.iconWrap}>
               <Clock3 size={18} color="#312FB8" strokeWidth={2.2} />
             </View>
             <Text style={s.title}>{title}</Text>
             <Text style={s.message}>{message}</Text>
-          </LinearGradient>
+          </View>
 
           <View style={s.actions}>
             <TouchableOpacity style={s.secondaryBtn} activeOpacity={0.85} onPress={onClose}>
@@ -95,6 +89,7 @@ const s = StyleSheet.create({
     paddingBottom: 20,
     paddingHorizontal: 18,
     alignItems: "center",
+    backgroundColor: "#FFFFFF",
   },
   iconWrap: {
     width: 42,
@@ -107,7 +102,8 @@ const s = StyleSheet.create({
   },
   title: {
     fontSize: 18,
-    fontWeight: "900",
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
     color: "#171A34",
     textAlign: "center",
   },
@@ -117,6 +113,8 @@ const s = StyleSheet.create({
     color: "#6E7391",
     lineHeight: 18,
     textAlign: "center",
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
   },
   actions: {
     flexDirection: "row",
@@ -135,7 +133,8 @@ const s = StyleSheet.create({
   },
   secondaryTxt: {
     fontSize: 13,
-    fontWeight: "700",
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
     color: "#312FB8",
   },
   primaryBtn: {
@@ -148,7 +147,8 @@ const s = StyleSheet.create({
   },
   primaryTxt: {
     fontSize: 13,
-    fontWeight: "700",
+    fontFamily: "Outfit_700Bold",
+    letterSpacing: 0,
     color: "#fff",
   },
 });

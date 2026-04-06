@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Image
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Image as ExpoImage } from "expo-image";
-import { CalendarDays, Users } from "lucide-react-native";
+import { ArrowRight, CalendarDays, Users } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import AppShell from "../components/layout/AppShell";
 import AuthRequiredModal from "../components/modals/AuthRequiredModal";
@@ -24,6 +24,18 @@ const INSIGHTS = [
     source: "PropTech Club Research | 2026",
     image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600",
   },
+  {
+    label: "ISLAMABAD | CAPITAL WATCH",
+    text: "Mixed-use inventory near the new expressway is tightening as builders respond to stronger corporate leasing demand.",
+    source: "PropTech Club Research | 2026",
+    image: "https://images.unsplash.com/photo-1494526585095-c41746248156?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600",
+  },
+  {
+    label: "LAHORE | DEVELOPMENT DESK",
+    text: "Mid-rise residential launches in DHA and Gulberg are seeing faster pre-bookings as end-user sentiment improves.",
+    source: "PropTech Club Research | 2026",
+    image: "https://images.unsplash.com/photo-1511818966892-d7d671e672a2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600",
+  },
 ];
 
 const ACTION_CARDS: Array<{
@@ -32,9 +44,9 @@ const ACTION_CARDS: Array<{
   route: string;
   Icon: typeof CalendarDays;
 }> = [
-  { label: "Plan your next meetup", title: "Upcoming Events", route: "/events", Icon: CalendarDays },
-  { label: "Grow your network", title: "Connect Members", route: "/members", Icon: Users },
-];
+    { label: "Plan your next meetup", title: "Upcoming Events", route: "/events", Icon: CalendarDays },
+    { label: "Grow your network", title: "Connect Members", route: "/members", Icon: Users },
+  ];
 
 function greeting() {
   const hour = new Date().getHours();
@@ -58,7 +70,7 @@ export default function HomeScreen() {
 
   return (
     <AppShell>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+      <View style={s.screen}>
         <View style={s.heroBanner}>
           <ExpoImage source={{ uri: HERO_IMAGE }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
           <LinearGradient
@@ -82,6 +94,9 @@ export default function HomeScreen() {
                 <TouchableOpacity onPress={() => router.push("/auth/sign-up" as any)} activeOpacity={0.85} style={s.heroCtaWrap}>
                   <LinearGradient colors={["#ffffff", "#E9E7FF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.heroCta}>
                     <Text style={s.heroCtaText}>Join Free</Text>
+                    <View style={s.heroCtaIconWrap}>
+                      <ArrowRight size={13} color="#1B196A" strokeWidth={2.3} />
+                    </View>
                   </LinearGradient>
                 </TouchableOpacity>
               </>
@@ -115,19 +130,14 @@ export default function HomeScreen() {
 
         <View style={s.insightsSection}>
           <Text style={s.insightsHeading}>Hot News From The Market</Text>
-          <ScrollView
-            nestedScrollEnabled
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={s.insightsScrollContent}
-            style={s.insightsScroll}
-          >
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.insightsScrollContent}>
             {INSIGHTS.map((insight, index) => (
               <TouchableOpacity key={index} style={s.insightCard} activeOpacity={0.9} onPress={() => handleProtectedPress("/auth/sign-in")}>
                 <View style={s.insightRow}>
                   <View style={s.insightCopy}>
-                    <Text style={s.insLabel}>{insight.label}</Text>
-                    <Text style={s.insText}>{insight.text}</Text>
-                    <Text style={s.insSource}>{insight.source}</Text>
+                    <Text style={s.insLabel} numberOfLines={1}>{insight.label}</Text>
+                    <Text style={s.insText} numberOfLines={2} ellipsizeMode="tail">{insight.text}</Text>
+                    <Text style={s.insSource} numberOfLines={1}>{insight.source}</Text>
                   </View>
                   <ExpoImage source={{ uri: insight.image }} style={s.insightImage} contentFit="cover" />
                 </View>
@@ -135,7 +145,7 @@ export default function HomeScreen() {
             ))}
           </ScrollView>
         </View>
-      </ScrollView>
+      </View>
 
       <AuthRequiredModal visible={showAuthPrompt} onClose={() => setShowAuthPrompt(false)} />
     </AppShell>
@@ -143,14 +153,23 @@ export default function HomeScreen() {
 }
 
 const s = StyleSheet.create({
+  screen: { flex: 1 },
   heroBanner: { marginHorizontal: 16, marginTop: 16, borderRadius: 24, height: 196, overflow: "hidden" },
   heroContent: { flex: 1, justifyContent: "flex-end", padding: 20 },
-  heroEyebrow: { color: "rgba(255,255,255,0.72)", fontSize: 11, fontWeight: "700", letterSpacing: 1.6, marginBottom: 6 },
-  heroTitle: { color: "#fff", fontSize: 28, fontWeight: "900", lineHeight: 32, letterSpacing: -0.5, paddingBottom: 10 },
-  heroSubtitle: { color: "#C8C5FF", fontSize: 15, fontWeight: "600", marginTop: 6, maxWidth: 290, lineHeight: 17 },
+  heroEyebrow: { color: "rgba(255,255,255,0.72)", fontSize: 11, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, marginBottom: 3 },
+  heroTitle: { color: "#fff", fontSize: 25, fontFamily: "Outfit_700Bold", lineHeight: 32, letterSpacing: 0, paddingBottom: 20 },
+  heroSubtitle: { color: "#C8C5FF", fontSize: 14, fontFamily: "Outfit_300Light", letterSpacing: 0, marginTop: 2, maxWidth: 290, lineHeight: 17 },
   heroCtaWrap: { marginTop: 16, alignSelf: "flex-start", borderRadius: 12, overflow: "hidden" },
-  heroCta: { paddingHorizontal: 16, paddingVertical: 10 },
-  heroCtaText: { color: "#1B196A", fontSize: 13, fontWeight: "800" },
+  heroCta: { paddingHorizontal: 16, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 8 },
+  heroCtaText: { color: "#1B196A", fontSize: 13, fontFamily: "Outfit_600SemiBold", letterSpacing: 0 },
+  heroCtaIconWrap: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(27,25,106,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   actionGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -199,27 +218,26 @@ const s = StyleSheet.create({
   },
   actionTitle: {
     color: "#fff",
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: -0.4,
-    marginTop: 10,
+    fontSize: 17,
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
+    paddingTop: 20,
+    marginLeft: 3,
   },
-  insightsSection: { marginTop: 28 },
+  insightsSection: { flex: 1, marginTop: 28 },
   insightsHeading: {
-    fontSize: 24,
-    fontWeight: "900",
+    fontSize: 23,
+    fontFamily: "Outfit_700Bold",
     color: "#121426",
     marginBottom: 14,
     paddingHorizontal: 16,
-    letterSpacing: -0.4,
+    letterSpacing: -0.5,
+    marginLeft: 2,
   },
   insightsScrollContent: {
     paddingHorizontal: 16,
     gap: 10,
-    paddingBottom: 4,
-  },
-  insightsScroll: {
-    maxHeight: 280,
+    paddingBottom: 8,
   },
   insightCard: {
     backgroundColor: "#fff",
@@ -227,6 +245,12 @@ const s = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: "rgba(49,47,184,0.08)",
     padding: 16,
+    minHeight: 122,
+    shadowColor: "#16163D",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 4,
   },
   insightRow: {
     flexDirection: "row",
@@ -235,10 +259,32 @@ const s = StyleSheet.create({
   },
   insightCopy: {
     flex: 1,
+    minHeight: 90,
+    justifyContent: "space-between",
   },
-  insLabel: { fontSize: 10, fontWeight: "800", color: "#312FB8", letterSpacing: 1, marginBottom: 6 },
-  insText: { fontSize: 13, color: "#1a1a2e", fontWeight: "500", lineHeight: 20 },
-  insSource: { fontSize: 10, color: "#0F6E56", fontWeight: "800", marginTop: 8 },
+  insLabel: {
+    fontSize: 10,
+    fontFamily: "Outfit_600SemiBold",
+    color: "#312FB8",
+    letterSpacing: 0,
+    marginBottom: 6,
+    textTransform: "uppercase",
+  },
+  insText: {
+    fontSize: 13,
+    color: "#1a1a2e",
+    fontFamily: "Outfit_400Regular",
+    lineHeight: 18,
+    letterSpacing: 0,
+    flexShrink: 1,
+  },
+  insSource: {
+    fontSize: 10,
+    color: "#0F6E56",
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
+    marginTop: 10,
+  },
   insightImage: {
     width: 82,
     height: 82,

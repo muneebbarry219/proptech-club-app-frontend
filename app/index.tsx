@@ -5,6 +5,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { ArrowRight } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { storage } from "../utils/storage";
 
@@ -27,13 +28,19 @@ function CountryFlag({ country }: { country: "ksa" | "pk" | "uae" }) {
 }
 
 export default function SplashScreen() {
+  const primaryTagline = "Grow Your Network,";
+  const secondaryTagline = "Grow Your Networth";
   const router = useRouter();
   const { isLoading, isAuthenticated, profile } = useAuth();
   const [canEnter, setCanEnter] = useState(false);
 
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const logoY = useRef(new Animated.Value(20)).current;
+  const logoLiftY = useRef(new Animated.Value(0)).current;
+  const flagsLiftY = useRef(new Animated.Value(0)).current;
   const taglineOp = useRef(new Animated.Value(0)).current;
+  const taglinePrimaryX = useRef(new Animated.Value(-42)).current;
+  const taglineSecondaryX = useRef(new Animated.Value(-54)).current;
   const btnOp = useRef(new Animated.Value(0)).current;
   const progressW = useRef(new Animated.Value(0)).current;
 
@@ -53,6 +60,10 @@ export default function SplashScreen() {
   useEffect(() => {
     setCanEnter(false);
     progressW.setValue(0);
+    logoLiftY.setValue(0);
+    flagsLiftY.setValue(0);
+    taglinePrimaryX.setValue(-42);
+    taglineSecondaryX.setValue(-54);
 
     particles.forEach((p, i) => {
       Animated.loop(
@@ -77,7 +88,13 @@ export default function SplashScreen() {
         Animated.timing(logoOpacity, { toValue: 1, duration: 800, delay: 300, useNativeDriver: true }),
         Animated.timing(logoY, { toValue: 0, duration: 800, delay: 300, useNativeDriver: true }),
       ]),
-      Animated.timing(taglineOp, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.parallel([
+        Animated.timing(taglineOp, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(logoLiftY, { toValue: -48, duration: 600, useNativeDriver: true }),
+        Animated.timing(flagsLiftY, { toValue: -30, duration: 600, useNativeDriver: true }),
+        Animated.timing(taglinePrimaryX, { toValue: 0, duration: 720, useNativeDriver: true }),
+        Animated.timing(taglineSecondaryX, { toValue: 0, duration: 820, delay: 120, useNativeDriver: true }),
+      ]),
       Animated.timing(btnOp, { toValue: 1, duration: 500, useNativeDriver: true }),
     ]).start();
 
@@ -87,8 +104,22 @@ export default function SplashScreen() {
       useNativeDriver: false,
     });
     prog.start(({ finished }) => { if (finished) setCanEnter(true); });
-    return () => prog.stop();
-  }, [isLoading, particles, progressW, logoOpacity, logoY, taglineOp, btnOp]);
+    return () => {
+      prog.stop();
+    };
+  }, [
+    isLoading,
+    particles,
+    progressW,
+    logoOpacity,
+    logoY,
+    logoLiftY,
+    flagsLiftY,
+    taglineOp,
+    taglinePrimaryX,
+    taglineSecondaryX,
+    btnOp,
+  ]);
 
   const handleEnter = async () => {
     if (isLoading || !canEnter) return;
@@ -139,7 +170,12 @@ export default function SplashScreen() {
 
       <View style={s.content}>
         <View style={s.center}>
-          <Animated.View style={[s.logoWrap, { opacity: logoOpacity, transform: [{ translateY: logoY }] }]}>
+          <Animated.View
+            style={[
+              s.logoWrap,
+              { opacity: logoOpacity, transform: [{ translateY: logoY }, { translateY: logoLiftY }] },
+            ]}
+          >
             <Image
               source={require("../assets/logo.png")}
               style={s.logoImage}
@@ -148,15 +184,25 @@ export default function SplashScreen() {
             <Text style={s.logoName}>The PropTech Club</Text>
           </Animated.View>
 
-          <Animated.View style={[s.flagsRow, { opacity: taglineOp }]}>
+          <Animated.View
+            style={[s.flagsRow, { opacity: taglineOp, transform: [{ translateY: flagsLiftY }] }]}
+          >
             <CountryFlag country="ksa" />
             <CountryFlag country="pk" />
             <CountryFlag country="uae" />
           </Animated.View>
 
           <Animated.View style={[s.taglineWrap, { opacity: taglineOp }]}>
-            <Text style={s.taglinePrimary}>Grow Your Network</Text>
-            <Text style={s.taglineSecondary}>Grow Your Networth</Text>
+            <Animated.View
+              style={{ transform: [{ translateX: taglinePrimaryX }] }}
+            >
+              <Text style={s.taglinePrimary}>{primaryTagline}</Text>
+            </Animated.View>
+            <Animated.View
+              style={{ transform: [{ translateX: taglineSecondaryX }], marginTop: 6 }}
+            >
+              <Text style={s.taglineSecondary}>{secondaryTagline}</Text>
+            </Animated.View>
           </Animated.View>
 
           <Animated.View style={[s.btnWrap, { opacity: btnOp }]}>
@@ -168,7 +214,7 @@ export default function SplashScreen() {
             >
               <Text style={s.btnText}>Enter Ecosystem</Text>
               <View style={[s.btnArrow, !canEnter && s.btnArrowDisabled]}>
-                <Text style={s.btnArrowText}>{">"}</Text>
+                <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.4} />
               </View>
             </TouchableOpacity>
           </Animated.View>
@@ -178,7 +224,7 @@ export default function SplashScreen() {
           <View style={s.progressTrack}>
             <Animated.View style={[s.progressBar, { width: progressW }]} />
           </View>
-          <Text style={s.tapLabel}>PRESS TO CONTINUE</Text>
+          <Text style={s.tapLabel}>PRESS THE BUTTON TO CONTINUE</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -190,7 +236,7 @@ const s = StyleSheet.create({
   particle: { position: "absolute", width: 10, height: 10, borderRadius: 5, backgroundColor: "rgba(255,255,255,0.2)" },
   content: { flex: 1, paddingHorizontal: 28, paddingTop: 60, paddingBottom: 44, justifyContent: "space-between" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  logoWrap: { alignItems: "center", marginBottom: 22 },
+  logoWrap: { alignItems: "center", marginBottom: 10 },
   logoImage: { width: 132, height: 132 },
   logoName: { fontSize: 38, color: "#fff", fontFamily: "BebasNeue", letterSpacing: 1.5, textAlign: "center", marginTop: 8 },
   flagsRow: {
@@ -213,10 +259,10 @@ const s = StyleSheet.create({
   },
   taglinePrimary: {
     color: "rgba(255,255,255,0.82)",
-    fontFamily: "Outfit_400Regular",
-    fontSize: 24,
-    lineHeight: 28,
-    letterSpacing: -0.4,
+    fontFamily: "Outfit_300Light",
+    fontSize: 34,
+    lineHeight: 34,
+    letterSpacing: -1.05,
     textAlign: "center",
   },
   taglineSecondary: {
@@ -226,7 +272,6 @@ const s = StyleSheet.create({
     lineHeight: 35,
     letterSpacing: -0.9,
     textAlign: "center",
-    marginTop: 6,
   },
   btnWrap: { alignSelf: "center" },
   btn: {
@@ -244,12 +289,11 @@ const s = StyleSheet.create({
     elevation: 6,
   },
   btnDisabled: { opacity: 0.5 },
-  btnText: { fontSize: 16, fontWeight: "800", color: "#312FB8" },
+  btnText: { fontSize: 16, fontFamily: "Outfit_300Light", color: "#312FB8" },
   btnArrow: { width: 28, height: 28, borderRadius: 8, backgroundColor: "#312FB8", alignItems: "center", justifyContent: "center" },
   btnArrowDisabled: { backgroundColor: "rgba(49,47,184,0.5)" },
-  btnArrowText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   bottom: { flexDirection: "row", alignItems: "center", gap: 14 },
   progressTrack: { flex: 1, height: 2, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.15)", overflow: "hidden" },
   progressBar: { height: "100%", backgroundColor: "rgba(255,255,255,0.8)", borderRadius: 2 },
-  tapLabel: { color: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: "600", letterSpacing: 1 },
+  tapLabel: { color: "rgba(255,255,255,0.35)", fontSize: 10, fontFamily: "Outfit_400Regular", letterSpacing: 0.5 },
 });

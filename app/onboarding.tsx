@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { BriefcaseBusiness, Lock, Users } from "lucide-react-native";
 import { storage } from "../utils/storage";
 
 const { width } = Dimensions.get("window");
@@ -11,8 +12,8 @@ const SLIDES = [
   {
     id: 1,
     icon: "👥",
-    title: "Connect with verified\nreal estate stakeholders",
-    subtitle: "Developers, investors, brokers and architects — all in one trusted network.",
+    title: "Connect with verified\nReal Estate Stakeholders",
+    subtitle: "Developers, investors, brokers and architects \nall in one trusted network.",
     accent: "#5DCAA5",
   },
   {
@@ -20,14 +21,14 @@ const SLIDES = [
     icon: "💼",
     title: "Discover projects,\ncapital & opportunities",
     subtitle: "Browse the Deal Flow marketplace. Find investment opportunities or post your own.",
-    accent: "#C8C5FF",
+    accent: "#F3B24B",
   },
   {
     id: 3,
     icon: "🔒",
     title: "Access private\nindustry rooms",
     subtitle: "Exclusive circles for developers, investors, and the GCC corridor. Members only.",
-    accent: "#F0997B",
+    accent: "#F58FB3",
   },
 ];
 
@@ -85,14 +86,40 @@ export default function OnboardingScreen() {
         {SLIDES.map((s) => (
           <View key={s.id} style={[styles.slide, { width }]}>
             {/* Icon circle */}
-            <View style={[styles.iconCircle, { borderColor: s.accent + "40" }]}>
-              <View style={[styles.iconInner, { backgroundColor: s.accent + "20" }]}>
-                <Text style={styles.iconText}>{s.icon}</Text>
+            <View
+              style={[
+                styles.iconCircle,
+                { borderColor: "rgba(255,255,255,0.16)" },
+                (s.id === 1 || s.id === 2 || s.id === 3) && styles.iconCircleMinimal,
+              ]}
+            >
+              <View
+                style={[
+                  styles.iconInner,
+                  { backgroundColor: s.accent + "20" },
+                  (s.id === 1 || s.id === 2 || s.id === 3) && styles.iconInnerMinimal,
+                ]}
+              >
+                {s.id === 1 ? (
+                  <View style={styles.minimalIconWrap}>
+                    <Users size={28} color="#5DCAA5" strokeWidth={2} />
+                  </View>
+                ) : s.id === 2 ? (
+                  <View style={styles.minimalIconWrap}>
+                    <BriefcaseBusiness size={28} color="#F3B24B" strokeWidth={2} />
+                  </View>
+                ) : s.id === 3 ? (
+                  <View style={styles.minimalIconWrap}>
+                    <Lock size={28} color="#F58FB3" strokeWidth={2} />
+                  </View>
+                ) : (
+                  <Text style={styles.iconText}>{s.icon}</Text>
+                )}
               </View>
             </View>
 
-            <Text style={styles.title}>{s.title}</Text>
-            <Text style={styles.subtitle}>{s.subtitle}</Text>
+            <Text style={[styles.title, s.id === 1 && styles.titleFirst, s.id === 2 && styles.titleSecond, s.id === 3 && styles.titleThird]}>{s.title}</Text>
+            <Text style={[styles.subtitle, s.id === 1 && styles.subtitleFirst, s.id === 2 && styles.subtitleSecond, s.id === 3 && styles.subtitleThird]}>{s.subtitle}</Text>
           </View>
         ))}
       </ScrollView>
@@ -133,8 +160,24 @@ export default function OnboardingScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  skipBtn: { position: "absolute", top: 60, right: 24, zIndex: 10, padding: 8 },
-  skipText: { color: "rgba(255,255,255,0.5)", fontSize: 14, fontWeight: "600" },
+  skipBtn: {
+    position: "absolute",
+    top: 60,
+    right: 24,
+    zIndex: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  skipText: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 14,
+    fontFamily: "Outfit_300Light",
+    letterSpacing: 0,
+  },
   slide: {
     flex: 1, paddingHorizontal: 36,
     justifyContent: "center", alignItems: "flex-start",
@@ -149,14 +192,61 @@ const styles = StyleSheet.create({
     width: 90, height: 90, borderRadius: 45,
     alignItems: "center", justifyContent: "center",
   },
+  iconCircleMinimal: {
+    borderWidth: 1,
+    backgroundColor: "rgba(255,255,255,0.02)",
+  },
+  iconInnerMinimal: {
+    backgroundColor: "rgba(93,202,165,0.12)",
+  },
+  minimalIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   iconText: { fontSize: 42 },
   title: {
     color: "#fff", fontSize: 28, fontWeight: "900",
-    lineHeight: 36, letterSpacing: -0.5, marginBottom: 16,
+    lineHeight: 36, letterSpacing: 0.5, marginBottom: 16,
+  },
+  titleFirst: {
+    fontFamily: "Outfit_600SemiBold",
+    fontWeight: "600",
+    letterSpacing: 0,
+  },
+  titleSecond: {
+    fontFamily: "Outfit_600SemiBold",
+    fontWeight: "600",
+    letterSpacing: 0,
+  },
+  titleThird: {
+    fontFamily: "Outfit_600SemiBold",
+    fontWeight: "600",
+    letterSpacing: 0,
   },
   subtitle: {
     color: "rgba(255,255,255,0.6)", fontSize: 15,
     lineHeight: 24, fontWeight: "400",
+  },
+  subtitleFirst: {
+    fontFamily: "Outfit_300Light",
+    fontWeight: "300",
+    letterSpacing: 0,
+  },
+  subtitleSecond: {
+    fontFamily: "Outfit_300Light",
+    fontWeight: "300",
+    letterSpacing: 0,
+  },
+  subtitleThird: {
+    fontFamily: "Outfit_300Light",
+    fontWeight: "300",
+    letterSpacing: 0,
   },
   bottom: { paddingHorizontal: 28, paddingBottom: 52, gap: 28 },
   dots: { flexDirection: "row", gap: 8 },
@@ -168,6 +258,13 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: "rgba(255,255,255,0.2)",
     overflow: "hidden",
   },
-  btnText: { color: "#fff", fontSize: 17, fontWeight: "800" },
-  btnArrow: { color: "rgba(255,255,255,0.7)", fontSize: 18, fontWeight: "700" },
+  btnText: { color: "#fff", fontSize: 17, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
+  btnArrow: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 18,
+    fontFamily: "Outfit_400Regular",
+    lineHeight: 18,
+    textAlignVertical: "center",
+    includeFontPadding: false,
+  },
 });

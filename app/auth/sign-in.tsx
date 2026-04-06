@@ -51,7 +51,7 @@ export default function SignInScreen() {
     <LinearGradient colors={["#0f0e7a", "#1a18a0", "#312FB8"]} start={{ x: 0, y: 1 }} end={{ x: 0, y: 0 }} style={{ flex: 1 }}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 20, paddingBottom: Math.max(insets.bottom, 24) + 20 }]}
+          contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 8, paddingBottom: Math.max(insets.bottom, 24) + 20 }]}
           keyboardShouldPersistTaps="handled"
         >
           <TouchableOpacity onPress={() => router.back()} style={styles.back}>
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   },
   back: {
     position: "absolute",
-    top: 24,
+    top: 50,
     left: 24,
     width: 40,
     height: 40,
@@ -178,14 +178,16 @@ const styles = StyleSheet.create({
   title: {
     color: "#fff",
     fontSize: 26,
-    fontWeight: "900",
+    fontFamily: "Outfit_700Bold",
+    letterSpacing: 0,
     marginBottom: 6,
     textAlign: "center",
   },
   subtitle: {
     color: "rgba(255,255,255,0.6)",
     fontSize: 14,
-    fontWeight: "500",
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
     textAlign: "center",
   },
   card: {
@@ -210,13 +212,14 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#dc2626",
     fontSize: 13,
-    fontWeight: "500",
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
   },
   label: {
     fontSize: 11,
-    fontWeight: "700",
+    fontFamily: "Outfit_600SemiBold",
     color: "#555",
-    letterSpacing: 0.5,
+    letterSpacing: 0,
     marginBottom: 6,
   },
   input: {
@@ -226,6 +229,8 @@ const styles = StyleSheet.create({
     borderColor: "rgba(49,47,184,0.15)",
     paddingHorizontal: 16,
     fontSize: 15,
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
     color: "#1a1a2e",
     backgroundColor: "#fafafe",
   },
@@ -247,7 +252,8 @@ const styles = StyleSheet.create({
   submitText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "800",
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
   },
   footer: {
     flexDirection: "row",
@@ -257,11 +263,14 @@ const styles = StyleSheet.create({
   footerText: {
     color: "rgba(255,255,255,0.6)",
     fontSize: 14,
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
   },
   footerLink: {
     color: "#fff",
     fontSize: 14,
-    fontWeight: "800",
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
     textDecorationLine: "underline",
   },
 });

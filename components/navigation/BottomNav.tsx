@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter, usePathname } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { Home, CalendarDays, Users, MessagesSquare } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
@@ -36,28 +37,37 @@ export default function BottomNav() {
 
   return (
     <>
-      <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        {ITEMS.map(({ key, route, Icon, label }) => {
-          const active = isActive(route);
-          return (
-            <TouchableOpacity
-              key={key}
-              onPress={() => handlePress(route)}
-              style={styles.item}
-              activeOpacity={0.7}
-            >
-              <Icon
-                size={22}
-                color={active ? "#312FB8" : "#aaaaaa"}
-                strokeWidth={active ? 2.2 : 1.8}
-              />
-              <Text style={[styles.label, active && styles.labelActive]}>
-                {label}
-              </Text>
-              {active && <View style={styles.dot} />}
-            </TouchableOpacity>
-          );
-        })}
+      <View style={styles.wrap}>
+        <LinearGradient
+          colors={["rgba(244,241,255,0)", "rgba(244,241,255,0.95)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          pointerEvents="none"
+          style={styles.topFade}
+        />
+        <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          {ITEMS.map(({ key, route, Icon, label }) => {
+            const active = isActive(route);
+            return (
+              <TouchableOpacity
+                key={key}
+                onPress={() => handlePress(route)}
+                style={styles.item}
+                activeOpacity={0.7}
+              >
+                <Icon
+                  size={22}
+                  color={active ? "#312FB8" : "#aaaaaa"}
+                  strokeWidth={active ? 2.2 : 1.8}
+                />
+                <Text style={[styles.label, active && styles.labelActive]}>
+                  {label}
+                </Text>
+                {active && <View style={styles.dot} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
       <AuthRequiredModal visible={showAuthPrompt} onClose={() => setShowAuthPrompt(false)} />
     </>
@@ -65,6 +75,16 @@ export default function BottomNav() {
 }
 
 const styles = StyleSheet.create({
+  wrap: {
+    position: "relative",
+  },
+  topFade: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: -36,
+    height: 36,
+  },
   container: {
     flexDirection: "row",
     backgroundColor: "#fff",
@@ -74,7 +94,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   item: { flex: 1, alignItems: "center", gap: 3 },
-  label: { fontSize: 9, fontWeight: "500", color: "#aaaaaa" },
-  labelActive: { fontWeight: "700", color: "#312FB8" },
+  label: { fontSize: 9, fontFamily: "Outfit_400Regular", letterSpacing: 0, color: "#aaaaaa" },
+  labelActive: { fontFamily: "Outfit_600SemiBold", color: "#312FB8" },
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: "#312FB8", marginTop: 1 },
 });

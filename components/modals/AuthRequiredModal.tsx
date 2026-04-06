@@ -14,7 +14,7 @@ export default function AuthRequiredModal({ visible, onClose }: AuthRequiredModa
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <Pressable style={styles.modalCard} onPress={() => {}}>
+        <Pressable style={styles.modalCard} onPress={() => { }}>
           <View style={styles.modalBadge}>
             <Frown size={22} color="#312FB8" strokeWidth={2.1} />
           </View>
@@ -79,19 +79,21 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   modalTitle: {
-    fontSize: 23,
-    fontWeight: "900",
+    fontSize: 20,
+    fontFamily: "Outfit_600SemiBold",
     color: "#121426",
     marginBottom: 8,
-    letterSpacing: -0.5,
+    letterSpacing: 0,
     textAlign: "center",
   },
   modalText: {
     fontSize: 14,
-    lineHeight: 22,
+    lineHeight: 18,
     color: "#5c6278",
     marginBottom: 18,
     textAlign: "center",
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
   },
   modalButtonWrap: {
     borderRadius: 16,
@@ -105,6 +107,7 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: "#fff",
     fontSize: 14,
-    fontWeight: "800",
+    fontFamily: "Outfit_700Bold",
+    letterSpacing: 0,
   },
 });

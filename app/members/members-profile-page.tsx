@@ -43,11 +43,17 @@ interface MemberProfile {
 }
 
 const ROLE_COLORS: Record<string, string> = {
+  real_estate_developer: "#312FB8",
   developer: "#312FB8",
   investor: "#0F6E56",
-  broker: "#854F0B",
-  architect: "#993556",
+  banker_financial_institution: "#2563EB",
+  proptech_technology: "#185FA5",
   tech: "#185FA5",
+  broker_consultant: "#854F0B",
+  broker: "#854F0B",
+  architect_designer: "#993556",
+  architect: "#993556",
+  academia: "#7C3AED",
 };
 
 function initials(name: string) {
@@ -61,6 +67,24 @@ function initials(name: string) {
 
 function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatRoleLabel(role: string) {
+  const labels: Record<string, string> = {
+    real_estate_developer: "Real Estate Developer",
+    developer: "Real Estate Developer",
+    investor: "Investor",
+    banker_financial_institution: "Banker / Financial Institution",
+    proptech_technology: "PropTech / Technology",
+    tech: "PropTech / Technology",
+    broker_consultant: "Broker / Consultant",
+    broker: "Broker / Consultant",
+    architect_designer: "Architect / Designer",
+    architect: "Architect / Designer",
+    academia: "Academia",
+  };
+
+  return labels[role] ?? capitalize(role);
 }
 
 function pendingRequestDeletePath(currentUserId: string, memberId: string) {
@@ -363,12 +387,13 @@ export default function MemberProfileScreen() {
   return (
     <AppShell>
       <View style={s.container}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtnFloating} activeOpacity={0.8}>
-          <ArrowLeft size={20} color="#1A1A2E" strokeWidth={2.2} />
-        </TouchableOpacity>
-
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
+        <View style={s.fixedTop}>
           <View style={s.hero}>
+            <TouchableOpacity onPress={() => router.back()} style={s.backBtnFloating} activeOpacity={0.8}>
+              <ArrowLeft size={20} color="#312FB8" strokeWidth={2.2} />
+            </TouchableOpacity>
+            <View style={s.hc1} />
+            <View style={s.hc2} />
             <View style={[s.avatar, { backgroundColor: avatarColor }]}>
               <Text style={s.avatarTxt}>{initials(member.full_name)}</Text>
               {connStatus === "connected" ? (
@@ -384,7 +409,7 @@ export default function MemberProfileScreen() {
 
             <Text style={s.heroName}>{member.full_name}</Text>
             <Text style={s.heroRole}>
-              {capitalize(member.role)} · {capitalize(member.location)}
+              {formatRoleLabel(member.role)} · {capitalize(member.location)}
             </Text>
 
             <View style={s.heroBadges}>
@@ -412,7 +437,9 @@ export default function MemberProfileScreen() {
 
             <View style={s.actionWrap}>{renderActionBtn()}</View>
           </View>
+        </View>
 
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent} style={s.scrollArea}>
           <View style={s.section}>
             <Text style={s.secLabel}>About</Text>
             <View style={s.card}>
@@ -526,35 +553,54 @@ export default function MemberProfileScreen() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F8FC" },
   centerState: { alignItems: "center", justifyContent: "center" },
-  emptyStateText: { color: "#AAA", fontSize: 14 },
+  emptyStateText: { color: "#AAA", fontSize: 14, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
+  fixedTop: {
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "rgba(49,47,184,0.06)",
+  },
+  scrollArea: { flex: 1 },
   backBtnFloating: {
     position: "absolute",
     top: 12,
-    left: 16,
-    zIndex: 10,
+    left: 24,
+    zIndex: 3,
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.96)",
+    borderRadius: 20,
+    backgroundColor: "rgba(49,47,184,0.08)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(49,47,184,0.10)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
+    borderColor: "rgba(49,47,184,0.12)",
   },
   scrollContent: { paddingBottom: 40 },
   hero: {
     alignItems: "center",
-    paddingTop: 70,
+    paddingTop: 48,
     paddingBottom: 24,
     paddingHorizontal: 20,
     backgroundColor: "#FFFFFF",
-    borderBottomWidth: 0.5,
-    borderBottomColor: "rgba(49,47,184,0.06)",
+    position: "relative",
+    overflow: "hidden",
+  },
+  hc1: {
+    position: "absolute",
+    right: -30,
+    top: -30,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: "rgba(49,47,184,0.08)",
+  },
+  hc2: {
+    position: "absolute",
+    left: -20,
+    bottom: -20,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "rgba(49,47,184,0.04)",
   },
   avatar: {
     width: 86,
@@ -565,7 +611,7 @@ const s = StyleSheet.create({
     marginBottom: 14,
     position: "relative",
   },
-  avatarTxt: { color: "#FFFFFF", fontSize: 30, fontWeight: "900" },
+  avatarTxt: { color: "#FFFFFF", fontSize: 30, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
   connBadge: {
     position: "absolute",
     bottom: -4,
@@ -594,12 +640,12 @@ const s = StyleSheet.create({
   },
   heroName: {
     fontSize: 22,
-    fontWeight: "900",
+    fontFamily: "Outfit_700Bold",
     color: "#1A1A2E",
-    letterSpacing: -0.3,
+    letterSpacing: 0,
     marginBottom: 4,
   },
-  heroRole: { fontSize: 14, color: "#888", fontWeight: "500", textTransform: "capitalize" },
+  heroRole: { fontSize: 14, color: "#888", fontFamily: "Outfit_400Regular", letterSpacing: 0, textTransform: "capitalize" },
   heroBadges: {
     flexDirection: "row",
     gap: 8,
@@ -613,14 +659,14 @@ const s = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 20,
   },
-  badgeConnTxt: { fontSize: 11, fontWeight: "700", color: "#085041" },
+  badgeConnTxt: { fontSize: 11, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#085041" },
   badgePend: {
     backgroundColor: "#FAEEDA",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
   },
-  badgePendTxt: { fontSize: 11, fontWeight: "700", color: "#633806" },
+  badgePendTxt: { fontSize: 11, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#633806" },
   badgeVer: {
     backgroundColor: "#E6F1FB",
     paddingHorizontal: 10,
@@ -630,7 +676,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  badgeVerTxt: { fontSize: 11, fontWeight: "700", color: "#0C447C" },
+  badgeVerTxt: { fontSize: 11, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#0C447C" },
   actionWrap: { marginTop: 22 },
   connectedActions: { flexDirection: "row", gap: 10 },
   btnConnect: {
@@ -642,7 +688,7 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 14,
   },
-  btnConnectTxt: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+  btnConnectTxt: { color: "#FFFFFF", fontSize: 15, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
   btnMsg: {
     flexDirection: "row",
     alignItems: "center",
@@ -652,7 +698,7 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 14,
   },
-  btnMsgTxt: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+  btnMsgTxt: { color: "#FFFFFF", fontSize: 15, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
   btnDisconnect: {
     flexDirection: "row",
     alignItems: "center",
@@ -664,7 +710,7 @@ const s = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "rgba(180,35,24,0.18)",
   },
-  btnDisconnectTxt: { color: "#B42318", fontSize: 15, fontWeight: "800" },
+  btnDisconnectTxt: { color: "#B42318", fontSize: 15, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
   pendingActions: { flexDirection: "row", gap: 10 },
   btnDecline: {
     flexDirection: "row",
@@ -677,13 +723,13 @@ const s = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "rgba(220,38,38,0.2)",
   },
-  btnDeclineTxt: { color: "#DC2626", fontSize: 15, fontWeight: "700" },
+  btnDeclineTxt: { color: "#DC2626", fontSize: 15, fontFamily: "Outfit_600SemiBold", letterSpacing: 0 },
   section: { paddingHorizontal: 16, marginTop: 22 },
   secLabel: {
     fontSize: 11,
-    fontWeight: "700",
+    fontFamily: "Outfit_600SemiBold",
     color: "#9BA3B8",
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     textTransform: "uppercase",
     marginBottom: 10,
   },
@@ -697,15 +743,16 @@ const s = StyleSheet.create({
   infoRow: { padding: 14 },
   infoLabel: {
     fontSize: 10,
-    fontWeight: "700",
+    fontFamily: "Outfit_600SemiBold",
     color: "#AAA",
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
     marginBottom: 5,
   },
   infoValue: {
     fontSize: 14,
     color: "#1A1A2E",
-    fontWeight: "500",
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
     lineHeight: 20,
   },
   infoValueMuted: {
@@ -737,7 +784,7 @@ const s = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 20,
   },
-  tagTxt: { fontSize: 12, fontWeight: "600", color: "#3C3489" },
+  tagTxt: { fontSize: 12, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#3C3489" },
   waBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -757,6 +804,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   waCopy: { flex: 1 },
-  waBtnTitle: { fontSize: 14, fontWeight: "700", color: "#1A1A2E", marginBottom: 2 },
-  waBtnSub: { fontSize: 12, color: "#888" },
+  waBtnTitle: { fontSize: 14, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#1A1A2E", marginBottom: 2 },
+  waBtnSub: { fontSize: 12, color: "#888", fontFamily: "Outfit_400Regular", letterSpacing: 0 },
 });

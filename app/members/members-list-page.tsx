@@ -13,23 +13,23 @@ import {
 import { useRouter } from "expo-router";
 import { Check, Clock3, MessageCircle, Search, UserPlus, Users, X } from "lucide-react-native";
 import AppShell from "../../components/layout/AppShell";
-import AuthRequiredModal from "../../components/modals/AuthRequiredModal";
 import ConnectionActionModal from "../../components/modals/ConnectionActionModal";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../../constants/supabase";
-import { useAuth, type UserRole } from "../../context/AuthContext";
+import { normalizeUserRole, useAuth, type UserRole } from "../../context/AuthContext";
 
 type ConnectionStatus = "none" | "pending_sent" | "pending_received" | "connected";
 
 interface MemberRowData {
   id: string;
   full_name: string;
-  role: UserRole;
+  role: string;
   company: string | null;
   location: string;
   is_verified: boolean;
 }
 
 interface Member extends MemberRowData {
+  role: UserRole;
   connectionStatus: ConnectionStatus;
   connectionId: string | null;
 }
@@ -42,21 +42,28 @@ interface ConnectionRecord {
 }
 
 const ROLE_COLORS: Record<UserRole, string> = {
-  developer: "#312FB8",
+  real_estate_developer: "#312FB8",
   investor: "#0F6E56",
-  broker: "#854F0B",
-  architect: "#993556",
-  tech: "#185FA5",
+  banker_financial_institution: "#2563EB",
+  proptech_technology: "#185FA5",
+  broker_consultant: "#854F0B",
+  architect_designer: "#993556",
+  academia: "#7C3AED",
 };
 
-const ROLE_FILTERS: Array<{ label: string; value: UserRole | "all" }> = [
-  { label: "All", value: "all" },
-  { label: "Developer", value: "developer" },
-  { label: "Investor", value: "investor" },
-  { label: "Broker", value: "broker" },
-  { label: "Architect", value: "architect" },
-  { label: "Tech", value: "tech" },
-];
+function formatRoleLabel(role: UserRole) {
+  const labels: Record<UserRole, string> = {
+    real_estate_developer: "Real Estate Developer",
+    investor: "Investor",
+    banker_financial_institution: "Banker / Financial Institution",
+    proptech_technology: "PropTech / Technology",
+    broker_consultant: "Broker / Consultant",
+    architect_designer: "Architect / Designer",
+    academia: "Academia",
+  };
+
+  return labels[role];
+}
 
 function initials(name: string) {
   return name
@@ -117,8 +124,7 @@ function MemberRow({
   const isConnected = member.connectionStatus === "connected";
   const isPending = member.connectionStatus === "pending_sent" || member.connectionStatus === "pending_received";
   const metaText = [
-    member.role.charAt(0).toUpperCase() + member.role.slice(1),
-    member.company || "No company added",
+    formatRoleLabel(member.role),
     member.location.charAt(0).toUpperCase() + member.location.slice(1),
   ].join(" | ");
 
@@ -215,7 +221,7 @@ function EmptyState({ tab }: { tab: "all" | "connected" }) {
       <Text style={styles.emptyTitle}>{tab === "connected" ? "No connections yet" : "No members found"}</Text>
       <Text style={styles.emptySub}>
         {tab === "connected"
-          ? "Go to All Members and send connection requests to start building your network."
+          ? "Go to All Members and send connection requests to start building your network"
           : "Try adjusting your search or filters."}
       </Text>
     </View>
@@ -231,7 +237,6 @@ export default function MembersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
   const [cancelTarget, setCancelTarget] = useState<Member | null>(null);
 
   const load = useCallback(async () => {
@@ -258,31 +263,42 @@ export default function MembersScreen() {
       );
       const connections: ConnectionRecord[] = connRes.ok ? await connRes.json() : [];
 
-      const mapped: Member[] = profiles.map((profile) => {
-        const connection = findConnectionForMember(connections, user.id, profile.id);
+      const mapped: Member[] = profiles
+        .map((profile) => {
+          const normalizedRole = normalizeUserRole(profile.role);
+          if (!normalizedRole) return null;
 
-        if (!connection) {
           return {
             ...profile,
-            connectionStatus: "none",
-            connectionId: null,
+            role: normalizedRole,
           };
-        }
+        })
+        .filter((profile): profile is MemberRowData & { role: UserRole } => profile !== null)
+        .map((profile) => {
+          const connection = findConnectionForMember(connections, user.id, profile.id);
 
-        let status: ConnectionStatus = "none";
+          if (!connection) {
+            return {
+              ...profile,
+              connectionStatus: "none",
+              connectionId: null,
+            };
+          }
 
-        if (connection.status === "accepted") {
-          status = "connected";
-        } else if (connection.status === "pending") {
-          status = connection.requester_id === user.id ? "pending_sent" : "pending_received";
-        }
+          let status: ConnectionStatus = "none";
 
-        return {
-          ...profile,
-          connectionStatus: status,
-          connectionId: connection.id,
-        };
-      });
+          if (connection.status === "accepted") {
+            status = "connected";
+          } else if (connection.status === "pending") {
+            status = connection.requester_id === user.id ? "pending_sent" : "pending_received";
+          }
+
+          return {
+            ...profile,
+            connectionStatus: status,
+            connectionId: connection.id,
+          };
+        });
 
       setMembers(mapped);
     } catch (error) {
@@ -297,12 +313,16 @@ export default function MembersScreen() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/home" as any);
+    }
+  }, [isAuthenticated, isLoading, router]);
+
   if (!isLoading && !isAuthenticated) {
     return (
       <AppShell>
-        <View style={styles.gateScreen}>
-          <AuthRequiredModal visible onClose={() => router.replace("/home" as any)} />
-        </View>
+        <View style={styles.gateScreen} />
       </AppShell>
     );
   }
@@ -434,8 +454,7 @@ export default function MembersScreen() {
       member.full_name.toLowerCase().includes(q) ||
       (member.company?.toLowerCase().includes(q) ?? false) ||
       member.role.toLowerCase().includes(q);
-    const matchRole = roleFilter === "all" || member.role === roleFilter;
-    return matchSearch && matchRole;
+    return matchSearch;
   });
 
   const allMembers = filtered.filter((member) => member.connectionStatus !== "connected");
@@ -500,28 +519,6 @@ export default function MembersScreen() {
             ) : null}
           </View>
 
-          {tab === "all" ? (
-            <View style={styles.filterWrap}>
-              <FlatList
-                data={ROLE_FILTERS}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(item) => item.value}
-                contentContainerStyle={styles.filterList}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    onPress={() => setRoleFilter(item.value)}
-                    style={[styles.filterChip, roleFilter === item.value && styles.filterChipOn]}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.filterChipTxt, roleFilter === item.value && styles.filterChipTxtOn]}>
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
-          ) : null}
         </View>
 
         {loading ? (
@@ -597,7 +594,8 @@ const styles = StyleSheet.create({
   masterTabOn: { borderBottomColor: "#312FB8" },
   masterTabTxt: {
     fontSize: 14,
-    fontWeight: "700",
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
     color: "#AAAAAA",
   },
   masterTabTxtOn: { color: "#312FB8" },
@@ -615,7 +613,8 @@ const styles = StyleSheet.create({
   },
   tabBadgeTxt: {
     fontSize: 10,
-    fontWeight: "800",
+    fontFamily: "Outfit_700Bold",
+    letterSpacing: 0,
     color: "#6B679B",
   },
   tabBadgeTxtActive: { color: "#FFFFFF" },
@@ -633,33 +632,11 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
     color: "#1A1A2E",
     padding: 0,
   },
-  filterWrap: { marginTop: 10 },
-  filterList: {
-    paddingHorizontal: 16,
-    gap: 8,
-    paddingBottom: 12,
-  },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: "rgba(49,47,184,0.15)",
-    backgroundColor: "#FFFFFF",
-  },
-  filterChipOn: {
-    backgroundColor: "#312FB8",
-    borderColor: "#312FB8",
-  },
-  filterChipTxt: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#555555",
-  },
-  filterChipTxtOn: { color: "#FFFFFF" },
   loader: {
     flex: 1,
     alignItems: "center",
@@ -679,10 +656,15 @@ const styles = StyleSheet.create({
     borderColor: "rgba(49,47,184,0.08)",
     padding: 14,
     marginBottom: 8,
+    shadowColor: "#18163F",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 4,
   },
   rowConnected: {
-    borderColor: "rgba(15,110,86,0.2)",
-    backgroundColor: "rgba(15,110,86,0.02)",
+    borderColor: "rgba(15,110,86,0.16)",
+    backgroundColor: "#FFFFFF",
   },
   avatar: {
     width: 46,
@@ -696,7 +678,8 @@ const styles = StyleSheet.create({
   avatarTxt: {
     color: "#FFFFFF",
     fontSize: 15,
-    fontWeight: "800",
+    fontFamily: "Outfit_700Bold",
+    letterSpacing: 0,
   },
   connDot: {
     position: "absolute",
@@ -730,14 +713,16 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 14,
-    fontWeight: "800",
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
     color: "#1A1A2E",
     marginBottom: 2,
   },
   meta: {
     fontSize: 11,
     color: "#888888",
-    fontWeight: "500",
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
   },
   badges: {
     flexDirection: "row",
@@ -753,7 +738,8 @@ const styles = StyleSheet.create({
   },
   badgeConnTxt: {
     fontSize: 9,
-    fontWeight: "700",
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
     color: "#085041",
   },
   badgePend: {
@@ -764,7 +750,8 @@ const styles = StyleSheet.create({
   },
   badgePendTxt: {
     fontSize: 9,
-    fontWeight: "700",
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
     color: "#633806",
   },
   badgeVer: {
@@ -775,7 +762,8 @@ const styles = StyleSheet.create({
   },
   badgeVerTxt: {
     fontSize: 9,
-    fontWeight: "700",
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
     color: "#0C447C",
   },
   btnAdd: {
@@ -795,7 +783,8 @@ const styles = StyleSheet.create({
   btnAddTxt: {
     fontSize: 11,
     lineHeight: 14,
-    fontWeight: "700",
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
     color: "#312FB8",
   },
   btnMessage: {
@@ -815,7 +804,8 @@ const styles = StyleSheet.create({
   btnMessageTxt: {
     fontSize: 11,
     lineHeight: 14,
-    fontWeight: "700",
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
     color: "#0F6E56",
   },
   btnPend: {
@@ -836,7 +826,8 @@ const styles = StyleSheet.create({
     color: "#8C5B16",
     fontSize: 11,
     lineHeight: 14,
-    fontWeight: "700",
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
   },
   pendingDecisionWrap: {
     flexDirection: "row",
@@ -925,7 +916,8 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 16,
-    fontWeight: "800",
+    fontFamily: "Outfit_700Bold",
+    letterSpacing: 0,
     color: "#1A1A2E",
     textAlign: "center",
   },
@@ -934,6 +926,8 @@ const styles = StyleSheet.create({
     color: "#AAAAAA",
     textAlign: "center",
     lineHeight: 20,
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
   },
   gateScreen: { flex: 1 },
 });

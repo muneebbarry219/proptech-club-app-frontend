@@ -25,7 +25,7 @@ export default function AppHeader() {
           </TouchableOpacity>
         ) : (
           <TouchableOpacity onPress={() => router.push("/auth/sign-in" as any)} style={styles.signInBtn}>
-            <Text style={styles.signInTxt}>Sign in</Text>
+            <Text style={styles.signInTxt}>Sign In</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
   logoName: { fontSize: 20, fontFamily: "BebasNeue", color: "#1B196A", letterSpacing: 0.3 },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
   avatarBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: "#312FB8", alignItems: "center", justifyContent: "center" },
-  avatarTxt: { color: "#fff", fontSize: 12, fontWeight: "700" },
+  avatarTxt: { color: "#fff", fontSize: 12, fontFamily: "Outfit_600SemiBold", letterSpacing: 0 },
   signInBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, backgroundColor: "#EEEDFE", borderWidth: 1, borderColor: "rgba(49,47,184,0.2)" },
-  signInTxt: { fontSize: 13, fontWeight: "700", color: "#312FB8" },
+  signInTxt: { fontSize: 13, fontFamily: "Outfit_300Light", letterSpacing: 0, color: "#312FB8" },
 });

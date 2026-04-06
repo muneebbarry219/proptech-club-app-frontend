@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Search, X, MessageSquareText, Plus, Check, Users } from "lucide-react-native";
-import { useAuth } from "../../context/AuthContext";
+import { normalizeUserRole, useAuth } from "../../context/AuthContext";
 import AppShell from "../../components/layout/AppShell";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../../constants/supabase";
 
@@ -35,23 +35,32 @@ interface ConnectionOption {
 }
 
 const ROLE_COLORS: Record<string, string> = {
+  real_estate_developer: "#312FB8",
   developer: "#312FB8",
   investor: "#0F6E56",
-  broker: "#854F0B",
-  architect: "#993556",
+  banker_financial_institution: "#2563EB",
+  proptech_technology: "#185FA5",
   tech: "#185FA5",
+  broker_consultant: "#854F0B",
+  broker: "#854F0B",
+  architect_designer: "#993556",
+  architect: "#993556",
+  academia: "#7C3AED",
 };
 
-type FilterType = "all" | "unread" | "developer" | "investor" | "broker" | "architect" | "tech";
+type FilterType =
+  | "all"
+  | "unread"
+  | "today"
+  | "this_week"
+  | "this_month";
 
 const FILTERS: { label: string; value: FilterType }[] = [
   { label: "All", value: "all" },
   { label: "Unread", value: "unread" },
-  { label: "Developer", value: "developer" },
-  { label: "Investor", value: "investor" },
-  { label: "Broker", value: "broker" },
-  { label: "Architect", value: "architect" },
-  { label: "Tech", value: "tech" },
+  { label: "Today", value: "today" },
+  { label: "This Week", value: "this_week" },
+  { label: "This Month", value: "this_month" },
 ];
 
 function initials(name: string) {
@@ -63,6 +72,24 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+function formatRoleLabel(role: string) {
+  const labels: Record<string, string> = {
+    real_estate_developer: "Real Estate Developer",
+    developer: "Real Estate Developer",
+    investor: "Investor",
+    banker_financial_institution: "Banker / Financial Institution",
+    proptech_technology: "PropTech / Technology",
+    tech: "PropTech / Technology",
+    broker_consultant: "Broker / Consultant",
+    broker: "Broker / Consultant",
+    architect_designer: "Architect / Designer",
+    architect: "Architect / Designer",
+    academia: "Academia",
+  };
+
+  return labels[role] ?? role;
+}
+
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   if (diff < 60000) return "Just now";
@@ -71,6 +98,30 @@ function timeAgo(iso: string) {
   if (diff < 172800000) return "Yesterday";
   const date = new Date(iso);
   return date.toLocaleDateString("en-GB", { weekday: "short" });
+}
+
+function isToday(iso: string) {
+  const date = new Date(iso);
+  const now = new Date();
+  return date.toDateString() === now.toDateString();
+}
+
+function isThisWeek(iso: string) {
+  const date = new Date(iso);
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  const day = startOfWeek.getDay();
+  const diff = day === 0 ? 6 : day - 1;
+  startOfWeek.setDate(startOfWeek.getDate() - diff);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  return date >= startOfWeek;
+}
+
+function isThisMonth(iso: string) {
+  const date = new Date(iso);
+  const now = new Date();
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
 }
 
 function conversationRoute(partnerId: string) {
@@ -104,10 +155,6 @@ function ConvRow({ conv, onPress }: { conv: Conversation; onPress: () => void })
             </View>
           ) : null}
         </View>
-        <Text style={s.convRole}>
-          {conv.partnerRole.charAt(0).toUpperCase() + conv.partnerRole.slice(1)}
-          {conv.partnerCompany ? ` · ${conv.partnerCompany}` : ""}
-        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -132,7 +179,7 @@ function ConnectionRow({
           {connection.full_name}
         </Text>
         <Text style={s.connectionMeta} numberOfLines={1}>
-          {connection.role.charAt(0).toUpperCase() + connection.role.slice(1)}
+          {formatRoleLabel(connection.role)}
           {connection.company ? ` · ${connection.company}` : ""}
         </Text>
       </View>
@@ -225,7 +272,13 @@ export default function MessagesScreen() {
         return;
       }
 
-      const profiles = await profilesRes.json();
+      const profiles = (await profilesRes.json())
+        .map((profile: ConnectionOption) => {
+          const normalizedRole = normalizeUserRole(profile.role);
+          if (!normalizedRole) return null;
+          return { ...profile, role: normalizedRole };
+        })
+        .filter((profile: ConnectionOption | null): profile is ConnectionOption => profile !== null);
       profiles.sort((a: ConnectionOption, b: ConnectionOption) => a.full_name.localeCompare(b.full_name));
       setConnections(profiles);
     } catch (error) {
@@ -281,7 +334,13 @@ export default function MessagesScreen() {
       const profilesRes = await apiFetch(`/profiles?id=in.(${partnerIds.join(",")})&select=id,full_name,role,company`);
       if (!profilesRes.ok) return;
 
-      const profiles = await profilesRes.json();
+      const profiles = (await profilesRes.json())
+        .map((profile: any) => {
+          const normalizedRole = normalizeUserRole(profile.role);
+          if (!normalizedRole) return null;
+          return { ...profile, role: normalizedRole };
+        })
+        .filter((profile: any) => profile !== null);
       const convList: Conversation[] = profiles.map((profile: any) => {
         const conv = convMap.get(profile.id)!;
         return {
@@ -323,7 +382,15 @@ export default function MessagesScreen() {
     const matchSearch =
       !q || conv.partnerName.toLowerCase().includes(q) || (conv.partnerCompany?.toLowerCase().includes(q) ?? false);
     const matchFilter =
-      filter === "all" ? true : filter === "unread" ? conv.unreadCount > 0 : conv.partnerRole === filter;
+      filter === "all"
+        ? true
+        : filter === "unread"
+          ? conv.unreadCount > 0
+          : filter === "today"
+            ? isToday(conv.lastMessageAt)
+            : filter === "this_week"
+              ? isThisWeek(conv.lastMessageAt)
+              : isThisMonth(conv.lastMessageAt);
     return matchSearch && matchFilter;
   });
 
@@ -481,7 +548,7 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 10,
   },
-  searchInput: { flex: 1, fontSize: 14, color: "#1A1A2E", padding: 0 },
+  searchInput: { flex: 1, fontSize: 14, fontFamily: "Outfit_400Regular", letterSpacing: 0, color: "#1A1A2E", padding: 0 },
   filterList: { paddingHorizontal: 16, gap: 8, paddingBottom: 12 },
   filterChip: {
     paddingHorizontal: 14,
@@ -492,8 +559,8 @@ const s = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   filterChipOn: { backgroundColor: "#312FB8", borderColor: "#312FB8" },
-  filterChipTxt: { fontSize: 12, fontWeight: "600", color: "#555" },
-  filterChipTxtOn: { color: "#FFFFFF" },
+  filterChipTxt: { fontSize: 12, fontFamily: "Outfit_400Regular", letterSpacing: 0, color: "#555" },
+  filterChipTxtOn: { color: "#FFFFFF", fontFamily: "Outfit_600SemiBold", letterSpacing: 0 },
   loader: { flex: 1, alignItems: "center", justifyContent: "center" },
   listContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
   convRow: {
@@ -515,16 +582,15 @@ const s = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  avatarTxt: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+  avatarTxt: { color: "#FFFFFF", fontSize: 15, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
   convInfo: { flex: 1, minWidth: 0 },
   convTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 },
-  convName: { fontSize: 14, fontWeight: "600", color: "#1A1A2E", flex: 1, marginRight: 8 },
-  convNameBold: { fontWeight: "800" },
-  convTime: { fontSize: 10, color: "#BBB", fontWeight: "500", flexShrink: 0 },
-  convBottomRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 3 },
-  convPreview: { fontSize: 12, color: "#AAA", flex: 1, marginRight: 8 },
-  convPreviewUnread: { color: "#312FB8", fontWeight: "600" },
-  convRole: { fontSize: 10, color: "#BBB", fontWeight: "500" },
+  convName: { fontSize: 14, fontFamily: "Outfit_400Regular", letterSpacing: 0, color: "#1A1A2E", flex: 1, marginRight: 8 },
+  convNameBold: { fontFamily: "Outfit_600SemiBold" },
+  convTime: { fontSize: 10, color: "#BBB", fontFamily: "Outfit_400Regular", letterSpacing: 0, flexShrink: 0 },
+  convBottomRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  convPreview: { fontSize: 12, color: "#AAA", fontFamily: "Outfit_400Regular", letterSpacing: 0, flex: 1, marginRight: 8 },
+  convPreviewUnread: { color: "#312FB8", fontFamily: "Outfit_600SemiBold" },
   unreadBadge: {
     width: 18,
     height: 18,
@@ -534,7 +600,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  unreadBadgeTxt: { color: "#FFFFFF", fontSize: 9, fontWeight: "700" },
+  unreadBadgeTxt: { color: "#FFFFFF", fontSize: 9, fontFamily: "Outfit_600SemiBold", letterSpacing: 0 },
   empty: {
     flex: 1,
     alignItems: "center",
@@ -583,8 +649,8 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  emptyTitle: { fontSize: 16, fontWeight: "800", color: "#1A1A2E", textAlign: "center" },
-  emptySub: { fontSize: 13, color: "#AAA", textAlign: "center", lineHeight: 20 },
+  emptyTitle: { fontSize: 16, fontFamily: "Outfit_700Bold", letterSpacing: 0, color: "#1A1A2E", textAlign: "center" },
+  emptySub: { fontSize: 13, color: "#AAA", textAlign: "center", lineHeight: 20, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
   startChatBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -595,9 +661,9 @@ const s = StyleSheet.create({
     borderRadius: 14,
     marginTop: 8,
   },
-  startChatBtnTxt: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  startChatBtnTxt: { color: "#FFFFFF", fontSize: 14, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
   signInBtn: { backgroundColor: "#312FB8", paddingHorizontal: 28, paddingVertical: 12, borderRadius: 14, marginTop: 8 },
-  signInTxt: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+  signInTxt: { color: "#FFFFFF", fontSize: 15, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(15,18,40,0.56)",
@@ -648,7 +714,7 @@ const s = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 23,
-    fontWeight: "900",
+    fontFamily: "Outfit_700Bold",
     color: "#121426",
     marginBottom: 8,
     letterSpacing: -0.5,
@@ -660,6 +726,8 @@ const s = StyleSheet.create({
     color: "#5C6278",
     marginBottom: 18,
     textAlign: "center",
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
   },
   modalState: {
     minHeight: 120,
@@ -669,7 +737,8 @@ const s = StyleSheet.create({
   },
   modalStateTitle: {
     fontSize: 15,
-    fontWeight: "800",
+    fontFamily: "Outfit_700Bold",
+    letterSpacing: 0,
     color: "#1A1A2E",
     textAlign: "center",
     marginTop: 10,
@@ -680,6 +749,8 @@ const s = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     marginTop: 6,
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
   },
   connectionsList: { flexGrow: 0 },
   connectionsListContent: { gap: 8 },
@@ -694,8 +765,8 @@ const s = StyleSheet.create({
     padding: 14,
   },
   connectionInfo: { flex: 1, minWidth: 0 },
-  connectionName: { fontSize: 14, fontWeight: "800", color: "#1A1A2E", marginBottom: 2 },
-  connectionMeta: { fontSize: 11, color: "#888", fontWeight: "500" },
+  connectionName: { fontSize: 14, fontFamily: "Outfit_700Bold", letterSpacing: 0, color: "#1A1A2E", marginBottom: 2 },
+  connectionMeta: { fontSize: 11, color: "#888", fontFamily: "Outfit_400Regular", letterSpacing: 0 },
   connectionAction: {
     minHeight: 30,
     borderRadius: 10,
@@ -706,5 +777,5 @@ const s = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 10,
   },
-  connectionActionTxt: { fontSize: 11, fontWeight: "700", color: "#312FB8" },
+  connectionActionTxt: { fontSize: 11, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#312FB8" },
 });

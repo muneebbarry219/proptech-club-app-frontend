@@ -2,12 +2,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, ActivityIndicator, KeyboardAvoidingView,
-  Platform, Alert,
+  Platform, Alert, Keyboard,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, Send } from "lucide-react-native";
 import { useAuth } from "../../context/AuthContext";
+import AppShell from "../../components/layout/AppShell";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../../constants/supabase";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -59,9 +60,36 @@ function shouldShowDateDivider(current: Message, previous: Message | undefined) 
 }
 
 const ROLE_COLORS: Record<string, string> = {
-  developer: "#312FB8", investor: "#0F6E56",
-  broker: "#854F0B", architect: "#993556", tech: "#185FA5",
+  real_estate_developer: "#312FB8",
+  developer: "#312FB8",
+  investor: "#0F6E56",
+  banker_financial_institution: "#2563EB",
+  proptech_technology: "#185FA5",
+  tech: "#185FA5",
+  broker_consultant: "#854F0B",
+  broker: "#854F0B",
+  architect_designer: "#993556",
+  architect: "#993556",
+  academia: "#7C3AED",
 };
+
+function formatRoleLabel(role: string) {
+  const labels: Record<string, string> = {
+    real_estate_developer: "Real Estate Developer",
+    developer: "Real Estate Developer",
+    investor: "Investor",
+    banker_financial_institution: "Banker / Financial Institution",
+    proptech_technology: "PropTech / Technology",
+    tech: "PropTech / Technology",
+    broker_consultant: "Broker / Consultant",
+    broker: "Broker / Consultant",
+    architect_designer: "Architect / Designer",
+    architect: "Architect / Designer",
+    academia: "Academia",
+  };
+
+  return labels[role] ?? role;
+}
 
 // ── Message Bubble ─────────────────────────────────────────────
 
@@ -101,6 +129,7 @@ export default function ChatScreen() {
   const [text,      setText]      = useState("");
   const [loading,   setLoading]   = useState(true);
   const [sending,   setSending]   = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const flatListRef = useRef<FlatList>(null);
   const channelRef  = useRef<any>(null);
@@ -142,6 +171,23 @@ export default function ChatScreen() {
   }, [user, partnerId]);
 
   useEffect(() => { loadMessages(); }, [loadMessages]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // ── Mark incoming messages as read ─────────────────────────────
 
@@ -307,21 +353,24 @@ export default function ChatScreen() {
 
   if (loading) {
     return (
-      <View style={[s.container, { paddingTop: insets.top, alignItems: "center", justifyContent: "center" }]}>
-        <ActivityIndicator color="#312FB8" size="large" />
-      </View>
+      <AppShell>
+        <View style={[s.container, { alignItems: "center", justifyContent: "center" }]}>
+          <ActivityIndicator color="#312FB8" size="large" />
+        </View>
+      </AppShell>
     );
   }
 
-  const avatarColor = ROLE_COLORS[partner?.role ?? "developer"] ?? "#312FB8";
+  const avatarColor = ROLE_COLORS[partner?.role ?? "real_estate_developer"] ?? "#312FB8";
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={0}
-    >
-      <View style={[s.container, { paddingTop: insets.top }]}>
+    <AppShell>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={0}
+      >
+        <View style={s.container}>
 
         {/* ── Header ── */}
         <View style={s.header}>
@@ -341,7 +390,7 @@ export default function ChatScreen() {
             </Text>
             <Text style={s.headerSub} numberOfLines={1}>
               {partner?.role
-                ? partner.role.charAt(0).toUpperCase() + partner.role.slice(1)
+                ? formatRoleLabel(partner.role)
                 : ""}
               {partner?.company ? ` · ${partner.company}` : ""}
             </Text>
@@ -375,7 +424,15 @@ export default function ChatScreen() {
         )}
 
         {/* ── Input bar ── */}
-        <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View
+          style={[
+            s.inputBar,
+            {
+              paddingBottom: keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 12) + 16,
+              marginBottom: Platform.OS === "android" ? keyboardHeight : 0,
+            },
+          ]}
+        >
           <TextInput
             style={s.input}
             value={text}
@@ -399,8 +456,9 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
 
-      </View>
-    </KeyboardAvoidingView>
+        </View>
+      </KeyboardAvoidingView>
+    </AppShell>
   );
 }
 
@@ -411,30 +469,59 @@ const s = StyleSheet.create({
   header:             { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#fff", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: "rgba(49,47,184,0.08)" },
   backBtn:            { width: 38, height: 38, borderRadius: 12, backgroundColor: "#f4f4f8", alignItems: "center", justifyContent: "center", flexShrink: 0 },
   headerAvatar:       { width: 38, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  headerAvatarTxt:    { color: "#fff", fontSize: 13, fontWeight: "800" },
+  headerAvatarTxt:    { color: "#fff", fontSize: 13, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
   headerInfo:         { flex: 1, minWidth: 0 },
-  headerName:         { fontSize: 15, fontWeight: "800", color: "#1a1a2e" },
-  headerSub:          { fontSize: 11, color: "#888", fontWeight: "500", textTransform: "capitalize" },
+  headerName:         { fontSize: 15, fontFamily: "Outfit_700Bold", letterSpacing: 0, color: "#1a1a2e" },
+  headerSub:          { fontSize: 11, color: "#888", fontFamily: "Outfit_400Regular", letterSpacing: 0, textTransform: "capitalize" },
   messagesList:       { padding: 16, paddingBottom: 8 },
   dateDivider:        { alignItems: "center", marginVertical: 12 },
-  dateDividerTxt:     { fontSize: 10, fontWeight: "700", color: "#bbb", letterSpacing: 1 },
+  dateDividerTxt:     { fontSize: 10, fontFamily: "Outfit_600SemiBold", color: "#bbb", letterSpacing: 0.5 },
   bubbleWrap:         { marginBottom: 2 },
   bubbleWrapMine:     { alignItems: "flex-end" },
   bubbleWrapTheirs:   { alignItems: "flex-start" },
   bubble:             { maxWidth: "75%", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
   bubbleMine:         { backgroundColor: "#312FB8", borderBottomRightRadius: 4 },
   bubbleTheirs:       { backgroundColor: "#fff", borderWidth: 0.5, borderColor: "rgba(49,47,184,0.08)", borderBottomLeftRadius: 4 },
-  bubbleTxt:          { fontSize: 14, lineHeight: 20 },
+  bubbleTxt:          { fontSize: 14, lineHeight: 20, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
   bubbleTxtMine:      { color: "#fff" },
   bubbleTxtTheirs:    { color: "#1a1a2e" },
-  bubbleTime:         { fontSize: 10, color: "#bbb", paddingHorizontal: 4, marginTop: 3, marginBottom: 6 },
+  bubbleTime:         { fontSize: 10, color: "#bbb", paddingHorizontal: 4, marginTop: 3, marginBottom: 6, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
   emptyChat:          { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 12 },
   emptyChatAvatar:    { width: 72, height: 72, borderRadius: 22, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-  emptyChatAvatarTxt: { color: "#fff", fontSize: 26, fontWeight: "900" },
-  emptyChatName:      { fontSize: 18, fontWeight: "800", color: "#1a1a2e" },
-  emptyChatSub:       { fontSize: 13, color: "#aaa", textAlign: "center", lineHeight: 20 },
-  inputBar:           { flexDirection: "row", alignItems: "flex-end", gap: 10, backgroundColor: "#fff", paddingHorizontal: 16, paddingTop: 10, borderTopWidth: 0.5, borderTopColor: "rgba(49,47,184,0.08)" },
-  input:              { flex: 1, backgroundColor: "#f4f4f8", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 14, color: "#1a1a2e", maxHeight: 100 },
-  sendBtn:            { width: 40, height: 40, borderRadius: 13, backgroundColor: "#312FB8", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  emptyChatAvatarTxt: { color: "#fff", fontSize: 26, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
+  emptyChatName:      { fontSize: 18, fontFamily: "Outfit_700Bold", letterSpacing: 0, color: "#1a1a2e" },
+  emptyChatSub:       { fontSize: 13, color: "#aaa", textAlign: "center", lineHeight: 20, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
+  inputBar:           { flexDirection: "row", alignItems: "flex-end", gap: 10, paddingHorizontal: 16, paddingTop: 10 },
+  input:              {
+    flex: 1,
+    backgroundColor: "#f4f4f8",
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
+    color: "#1a1a2e",
+    maxHeight: 100,
+    shadowColor: "#17163D",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 5,
+  },
+  sendBtn:            {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    backgroundColor: "#312FB8",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    shadowColor: "#17163D",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 6,
+  },
   sendBtnDisabled:    { backgroundColor: "rgba(49,47,184,0.3)" },
 });

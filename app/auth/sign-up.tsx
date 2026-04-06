@@ -124,7 +124,7 @@ export default function SignUpScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView
-          contentContainerStyle={[s.scroll, { paddingTop: insets.top + 20, paddingBottom: Math.max(insets.bottom, 24) + 20 }]}
+          contentContainerStyle={[s.scroll, { paddingTop: insets.top + 2, paddingBottom: Math.max(insets.bottom, 24) + 20 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -137,7 +137,7 @@ export default function SignUpScreen() {
             <View style={s.logoMark}>
               <Image source={require("../../assets/proptech logo colored.png")} style={s.logoImg} resizeMode="contain" />
             </View>
-            <Text style={s.title}>Join PropTech Club</Text>
+            <Text style={s.title}>Join The Ecosystem</Text>
             <Text style={s.subtitle}>Create your account to enter the ecosystem</Text>
           </View>
 
@@ -293,34 +293,43 @@ export default function SignUpScreen() {
 
 const s = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: 24 },
-  back: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center", marginBottom: 28 },
+  back: {
+    top: 12,
+    left: 0,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   header: { alignItems: "center", marginBottom: 28 },
   logoMark: { width: 72, height: 72, borderRadius: 20, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", marginBottom: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 8 },
   logoImg: { width: 58, height: 58 },
-  title: { color: "#fff", fontSize: 26, fontWeight: "900", marginBottom: 6, textAlign: "center" },
-  subtitle: { color: "rgba(255,255,255,0.6)", fontSize: 14, fontWeight: "500", textAlign: "center" },
+  title: { color: "#fff", fontSize: 26, fontFamily: "Outfit_700Bold", letterSpacing: 0, marginBottom: 6, textAlign: "center" },
+  subtitle: { color: "rgba(255,255,255,0.6)", fontSize: 14, fontFamily: "Outfit_400Regular", letterSpacing: 0, textAlign: "center" },
   card: { backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.2, shadowRadius: 32, elevation: 12 },
   errorBox: { backgroundColor: "rgba(220,38,38,0.08)", borderWidth: 1, borderColor: "rgba(220,38,38,0.2)", borderRadius: 10, padding: 12, marginBottom: 16 },
-  errorText: { color: "#dc2626", fontSize: 13, fontWeight: "500" },
-  label: { fontSize: 11, fontWeight: "700", color: "#555", letterSpacing: 0.5, marginBottom: 6 },
+  errorText: { color: "#dc2626", fontSize: 13, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
+  label: { fontSize: 11, fontFamily: "Outfit_600SemiBold", color: "#555", letterSpacing: 0, marginBottom: 6 },
   mt: { marginTop: 14 },
-  input: { height: 52, borderRadius: 12, borderWidth: 1.5, borderColor: "rgba(49,47,184,0.15)", paddingHorizontal: 16, fontSize: 15, color: "#1a1a2e", backgroundColor: "#fafafe" },
+  input: { height: 52, borderRadius: 12, borderWidth: 1.5, borderColor: "rgba(49,47,184,0.15)", paddingHorizontal: 16, fontSize: 15, fontFamily: "Outfit_400Regular", letterSpacing: 0, color: "#1a1a2e", backgroundColor: "#fafafe" },
   phoneRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
   codeWrap: { zIndex: 10 },
   codePicker: { flexDirection: "row", alignItems: "center", gap: 6, height: 52, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1.5, borderColor: "rgba(49,47,184,0.15)", backgroundColor: "#fafafe" },
   codeFlag: { fontSize: 18 },
-  codeText: { fontSize: 14, fontWeight: "700", color: "#1a1a2e" },
+  codeText: { fontSize: 14, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#1a1a2e" },
   codeDropdown: { position: "absolute", top: 58, left: 0, width: 180, backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "rgba(49,47,184,0.12)", padding: 6, shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 8 },
   codeOption: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, borderRadius: 10 },
   codeOptionActive: { backgroundColor: "rgba(49,47,184,0.06)" },
-  codeLabel: { fontSize: 12, color: "#888", fontWeight: "500" },
+  codeLabel: { fontSize: 12, color: "#888", fontFamily: "Outfit_400Regular", letterSpacing: 0 },
   eyeBtn: { position: "absolute", right: 14, top: 16 },
-  helperError: { marginTop: 6, color: "#dc2626", fontSize: 12, fontWeight: "500" },
+  helperError: { marginTop: 6, color: "#dc2626", fontSize: 12, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
   submitWrap: { marginTop: 22, borderRadius: 14, overflow: "hidden" },
   submitWrapDisabled: { opacity: 0.8 },
   submitBtn: { height: 52, alignItems: "center", justifyContent: "center" },
-  submitText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  submitText: { color: "#fff", fontSize: 16, fontFamily: "Outfit_600SemiBold", letterSpacing: 0 },
   footer: { flexDirection: "row", justifyContent: "center", marginTop: 24 },
-  footerText: { color: "rgba(255,255,255,0.6)", fontSize: 14 },
-  footerLink: { color: "#fff", fontSize: 14, fontWeight: "800", textDecorationLine: "underline" },
+  footerText: { color: "rgba(255,255,255,0.6)", fontSize: 14, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
+  footerLink: { color: "#fff", fontSize: 14, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, textDecorationLine: "underline" },
 });

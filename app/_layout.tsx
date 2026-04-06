@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, Text, TextInput } from "react-native";
@@ -6,6 +6,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts } from "expo-font";
 import { BebasNeue_400Regular } from "@expo-google-fonts/bebas-neue";
 import {
+  Outfit_300Light,
   Outfit_400Regular,
   Outfit_500Medium,
   Outfit_600SemiBold,
@@ -15,77 +16,73 @@ import {
 } from "@expo-google-fonts/outfit";
 import { AuthProvider } from "../context/AuthContext";
 
-// ── Font weight → Poppins family map ─────────────────────────
+// ── Weight → Outfit family ────────────────────────────────────
 
-function normalizeWeight(fontWeight: unknown): number {
-  if (typeof fontWeight === "number") return fontWeight;
-  if (typeof fontWeight === "string") {
-    if (fontWeight === "bold") return 700;
-    if (fontWeight === "normal") return 400;
-    const parsed = Number.parseInt(fontWeight, 10);
-    return Number.isNaN(parsed) ? 400 : parsed;
+function outfitFamily(fontWeight: unknown): string {
+  let w = 400;
+  if (typeof fontWeight === "number") {
+    w = fontWeight;
+  } else if (typeof fontWeight === "string") {
+    if (fontWeight === "bold") w = 700;
+    else if (fontWeight === "normal") w = 400;
+    else {
+      const n = parseInt(fontWeight, 10);
+      if (!isNaN(n)) w = n;
+    }
   }
-  return 400;
-}
-
-function outfitFamily(fontWeight: unknown) {
-  const w = normalizeWeight(fontWeight);
   if (w >= 900) return "Outfit_900Black";
   if (w >= 800) return "Outfit_800ExtraBold";
   if (w >= 700) return "Outfit_700Bold";
   if (w >= 600) return "Outfit_600SemiBold";
   if (w >= 500) return "Outfit_500Medium";
-  return "Outfit_400Regular";
+  if (w >= 400) return "Outfit_400Regular";
+  return "Outfit_300Light";
 }
 
-// ── Global font patch ─────────────────────────────────────────
-// Intercepts every Text and TextInput render and applies Poppins
-// unless the element already has BebasNeue (logo) set.
+// ── Apply patch ───────────────────────────────────────────────
 
-const ReactAny = React as any;
-if (!ReactAny.__fontPatchApplied) {
-  (Text as any).defaultProps = {
-    ...((Text as any).defaultProps ?? {}),
-    style: [{ fontFamily: "Outfit_400Regular" }, (Text as any).defaultProps?.style].filter(Boolean),
-  };
-  (TextInput as any).defaultProps = {
-    ...((TextInput as any).defaultProps ?? {}),
-    style: [{ fontFamily: "Outfit_400Regular" }, (TextInput as any).defaultProps?.style].filter(Boolean),
-  };
+function applyFontPatch() {
+  const ReactAny = React as any;
+  if (ReactAny.__outfitPatchApplied) return;
 
-  const originalCreateElement = ReactAny.createElement.bind(ReactAny);
+  const _createElement = ReactAny.createElement.bind(ReactAny);
 
   ReactAny.createElement = (type: any, props: any, ...children: any[]) => {
-    const isTextLike = type === Text || type === TextInput;
-    if (!isTextLike) return originalCreateElement(type, props, ...children);
-
-    const nextProps = props ?? {};
-    const flatStyle = StyleSheet.flatten(nextProps.style) ?? {};
-
-    // Leave BebasNeue (logo in splash + header) untouched
-    if (flatStyle.fontFamily === "BebasNeue") {
-      return originalCreateElement(type, nextProps, ...children);
+    if (type !== Text && type !== TextInput) {
+      return _createElement(type, props, ...children);
     }
 
-    const patchedStyle = {
-      ...flatStyle,
-      fontFamily: outfitFamily(flatStyle.fontWeight),
-    } as any;
+    const p    = props ?? {};
+    const flat = (StyleSheet.flatten(p.style) ?? {}) as any;
 
-    // Remove fontWeight — Poppins already encodes it in the family name
-    delete patchedStyle.fontWeight;
+    // Leave BebasNeue untouched
+    if (flat.fontFamily === "BebasNeue") {
+      return _createElement(type, p, ...children);
+    }
 
-    return originalCreateElement(type, { ...nextProps, style: patchedStyle }, ...children);
+    const family  = outfitFamily(flat.fontWeight);
+    const patched = { ...flat, fontFamily: family };
+    delete patched.fontWeight;
+
+    return _createElement(type, { ...p, style: patched }, ...children);
   };
 
-  ReactAny.__fontPatchApplied = true;
+  // Also set defaultProps so text without any style gets Outfit too
+  (Text as any).defaultProps = (Text as any).defaultProps ?? {};
+  (Text as any).defaultProps.style = { fontFamily: "Outfit_400Regular" };
+
+  (TextInput as any).defaultProps = (TextInput as any).defaultProps ?? {};
+  (TextInput as any).defaultProps.style = { fontFamily: "Outfit_400Regular" };
+
+  ReactAny.__outfitPatchApplied = true;
 }
 
 // ── Root layout ───────────────────────────────────────────────
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    BebasNeue: BebasNeue_400Regular,
+    BebasNeue:            BebasNeue_400Regular,
+    Outfit_300Light,
     Outfit_400Regular,
     Outfit_500Medium,
     Outfit_600SemiBold,
@@ -93,6 +90,13 @@ export default function RootLayout() {
     Outfit_800ExtraBold,
     Outfit_900Black,
   });
+
+  // Apply patch only after fonts are confirmed loaded
+  useEffect(() => {
+    if (fontsLoaded) {
+      applyFontPatch();
+    }
+  }, [fontsLoaded]);
 
   if (!fontsLoaded) return null;
 

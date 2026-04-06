@@ -18,7 +18,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Eye, EyeOff, X, Camera, Pencil, LogOut, Image as ImageIcon, Check } from "lucide-react-native";
+import { AlertTriangle, ArrowLeft, Eye, EyeOff, X, Camera, Pencil, LogOut, Image as ImageIcon, Check } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth, type Profile, type UserRole, type UserLocation } from "../../context/AuthContext";
 import AppHeader from "../../components/navigation/AppHeader";
@@ -29,11 +29,13 @@ import { clearPendingSignupDraft, getPendingSignupDraft, type PendingSignupDraft
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ROLES: { value: UserRole; label: string }[] = [
-  { value: "developer", label: "Developer" },
+  { value: "real_estate_developer", label: "Real Estate Developer" },
   { value: "investor", label: "Investor" },
-  { value: "broker", label: "Broker" },
-  { value: "architect", label: "Architect" },
-  { value: "tech", label: "Tech" },
+  { value: "banker_financial_institution", label: "Banker / Financial Institution" },
+  { value: "proptech_technology", label: "PropTech / Technology" },
+  { value: "broker_consultant", label: "Broker / Consultant" },
+  { value: "architect_designer", label: "Architect / Designer" },
+  { value: "academia", label: "Academia" },
 ];
 
 const LOCATIONS: { value: UserLocation; label: string }[] = [
@@ -58,11 +60,13 @@ const LOOKING_FOR_OPTIONS = [
 const BIO_MAX_LENGTH = 120;
 
 const ROLE_COLORS: Record<string, string> = {
-  developer: "#312FB8",
+  real_estate_developer: "#312FB8",
   investor: "#0F6E56",
-  broker: "#854F0B",
-  architect: "#993556",
-  tech: "#185FA5",
+  banker_financial_institution: "#2563EB",
+  proptech_technology: "#185FA5",
+  broker_consultant: "#854F0B",
+  architect_designer: "#993556",
+  academia: "#7C3AED",
 };
 
 function initials(name: string) {
@@ -372,7 +376,7 @@ function CompleteSignupFlow({
   const flowTitle = existingUser ? "Complete Your Profile" : "Finish Your Signup";
   const flowSubtitle = existingUser
     ? "Complete the two required steps below before continuing."
-    : "Complete the two required steps below to create your account.";
+    : "Complete these required steps below to create your account.";
   const submitLabel = existingUser ? "Complete Profile" : "Create Account";
   const stepTitle = step === 1 ? "Personal Details" : "Professional Details";
   const stepSubtitle = step === 1 ? "Step 1 of 2" : "Step 2 of 2";
@@ -409,16 +413,13 @@ function CompleteSignupFlow({
           </View>
 
           <View style={s.completeCard}>
-            <View style={s.stepTabs}>
-              <View style={[s.stepTab, step === 1 && s.stepTabActive]}>
-                <Text style={[s.stepTabText, step === 1 && s.stepTabTextActive]}>1. Personal</Text>
+            <View style={s.stepProgressWrap}>
+              <View style={s.stepProgressRow}>
+                <View style={[s.stepLine, s.stepLineActive]} />
+                <View style={[s.stepLine, step === 2 && s.stepLineActive]} />
               </View>
-              <View style={[s.stepTab, step === 2 && s.stepTabActive]}>
-                <Text style={[s.stepTabText, step === 2 && s.stepTabTextActive]}>2. Professional</Text>
-              </View>
+              <Text style={s.stepProgressCaption}>{stepSubtitle}</Text>
             </View>
-            <Text style={s.stepTitle}>{stepTitle}</Text>
-            <Text style={s.stepSubtitle}>{stepSubtitle}</Text>
 
             {!!error && (
               <View style={s.errorBox}>
@@ -431,7 +432,7 @@ function CompleteSignupFlow({
                 <Text style={s.label}>COMPANY / ORGANISATION</Text>
                 <TextInput style={s.completeInput} value={company} onChangeText={setCompany} placeholder="Company name" placeholderTextColor="#aaa" />
 
-                <Text style={[s.label, s.mt]}>ROLE</Text>
+                <Text style={[s.label, s.mt]}>WHICH CATEGORY BEST DESCRIBES YOU?</Text>
                 <View style={s.chipsWrap}>
                   {ROLES.map((item) => (
                     <TouchableOpacity key={item.value} onPress={() => setRole(item.value)} style={[s.chip, role === item.value && s.chipOn]}>
@@ -471,17 +472,6 @@ function CompleteSignupFlow({
                   ))}
                 </View>
 
-                {!!signupSummary.length && (
-                  <View style={s.signupSummary}>
-                    <Text style={s.signupSummaryLabel}>Saved from signup</Text>
-                    <Text style={s.signupSummaryValue}>{signupSummary[0]}</Text>
-                    {signupSummary.slice(1).map((item) => (
-                      <Text key={item} style={s.signupSummaryMeta}>
-                        {item}
-                      </Text>
-                    ))}
-                  </View>
-                )}
               </>
             )}
 
@@ -674,8 +664,8 @@ export default function ProfileScreen() {
   const confirmSignOut = async () => {
     setSignOutModalOpen(false);
     setIsSigningOut(true);
-    await signOut();
     router.replace("/home");
+    await signOut();
     setIsSigningOut(false);
   };
 
@@ -955,7 +945,7 @@ export default function ProfileScreen() {
               <Text style={s.valueText}>{company || "Not set"}</Text>
             )}
 
-            <FieldLabel label="Role" />
+            <FieldLabel label="Which category best describes you?" />
             {editingProfessional ? (
               <View style={s.chipsWrap}>
                 {ROLES.map((r) => (
@@ -1014,23 +1004,13 @@ export default function ProfileScreen() {
       >
         <Pressable style={s.signOutBackdrop} onPress={() => setSignOutModalOpen(false)}>
           <Pressable style={s.signOutModalCard} onPress={() => { }}>
-            <TouchableOpacity
-              style={s.signOutCloseBtn}
-              onPress={() => setSignOutModalOpen(false)}
-              activeOpacity={0.85}
-            >
-              <X size={14} color="#72768B" strokeWidth={2.2} />
-            </TouchableOpacity>
-
-            <LinearGradient
-              colors={["#FFF1F1", "#FFECEC"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={s.signOutHeader}
-            >
+            <View style={s.signOutHeader}>
+              <View style={s.signOutBadge}>
+                <AlertTriangle size={22} color="#D7263D" strokeWidth={2.1} />
+              </View>
               <Text style={s.signOutTitle}>Sign Out?</Text>
               <Text style={s.signOutSubtitle}>You will need to sign in again to access your account.</Text>
-            </LinearGradient>
+            </View>
 
             <View style={s.signOutActions}>
               <TouchableOpacity
@@ -1045,7 +1025,6 @@ export default function ProfileScreen() {
                 activeOpacity={0.85}
                 onPress={confirmSignOut}
               >
-                <LogOut size={14} color="#fff" strokeWidth={2.2} />
                 <Text style={s.signOutConfirmTxt}>Sign Out</Text>
               </TouchableOpacity>
             </View>
@@ -1111,8 +1090,8 @@ const s = StyleSheet.create({
     marginBottom: 28,
   },
   completeHeader: { alignItems: "center", marginBottom: 28 },
-  completeTitle: { color: "#fff", fontSize: 26, fontWeight: "900", marginBottom: 6, textAlign: "center" },
-  completeSubtitle: { color: "rgba(255,255,255,0.68)", fontSize: 14, fontWeight: "500", textAlign: "center" },
+  completeTitle: { color: "#fff", fontSize: 26, fontFamily: "Outfit_700Bold", letterSpacing: 0, marginBottom: 6, textAlign: "center" },
+  completeSubtitle: { color: "rgba(255,255,255,0.68)", fontSize: 14, fontFamily: "Outfit_400Regular", letterSpacing: 0, textAlign: "center" },
   completeCard: {
     backgroundColor: "#fff",
     borderRadius: 24,
@@ -1123,24 +1102,18 @@ const s = StyleSheet.create({
     shadowRadius: 32,
     elevation: 12,
   },
-  stepTabs: { flexDirection: "row", gap: 10, marginBottom: 18 },
-  stepTab: {
+  stepProgressWrap: { marginBottom: 18 },
+  stepProgressRow: { flexDirection: "row", gap: 10 },
+  stepLine: {
     flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(49,47,184,0.14)",
-    backgroundColor: "#F5F4FF",
-    paddingVertical: 10,
-    alignItems: "center",
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: "#E7E6F6",
   },
-  stepTabActive: {
+  stepLineActive: {
     backgroundColor: "#312FB8",
-    borderColor: "#312FB8",
   },
-  stepTabText: { fontSize: 12, fontWeight: "700", color: "#312FB8" },
-  stepTabTextActive: { color: "#fff" },
-  stepTitle: { fontSize: 18, fontWeight: "900", color: "#171A34" },
-  stepSubtitle: { marginTop: 4, marginBottom: 16, fontSize: 12, color: "#6E7391", fontWeight: "600" },
+  stepProgressCaption: { marginTop: 8, marginBottom: 16, fontSize: 12, color: "#6E7391", fontFamily: "Outfit_400Regular", letterSpacing: 0 },
   errorBox: {
     backgroundColor: "rgba(220,38,38,0.08)",
     borderWidth: 1,
@@ -1149,8 +1122,8 @@ const s = StyleSheet.create({
     padding: 12,
     marginBottom: 16,
   },
-  errorText: { color: "#dc2626", fontSize: 13, fontWeight: "500" },
-  label: { fontSize: 11, fontWeight: "700", color: "#555", letterSpacing: 0.5, marginBottom: 6 },
+  errorText: { color: "#dc2626", fontSize: 13, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
+  label: { fontSize: 11, fontFamily: "Outfit_600SemiBold", color: "#555", letterSpacing: 0, marginBottom: 6 },
   mt: { marginTop: 14 },
   completeInput: {
     minHeight: 48,
@@ -1160,6 +1133,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
     color: "#1a1a2e",
     backgroundColor: "#fafafe",
   },
@@ -1167,7 +1142,7 @@ const s = StyleSheet.create({
   readonlyInput: { color: "#6E7391", backgroundColor: "#F3F4FA" },
   submitWrap: { marginTop: 22, borderRadius: 14, overflow: "hidden" },
   submitBtn: { height: 52, alignItems: "center", justifyContent: "center" },
-  submitText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  submitText: { color: "#fff", fontSize: 16, fontFamily: "Outfit_600SemiBold", letterSpacing: 0 },
   stepActions: { flexDirection: "row", gap: 12, marginTop: 22 },
   stepActionSpacer: { flex: 1 },
   stepSecondaryBtn: {
@@ -1180,7 +1155,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  stepSecondaryBtnText: { fontSize: 14, fontWeight: "700", color: "#312FB8" },
+  stepSecondaryBtnText: { fontSize: 14, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#312FB8" },
   stepPrimaryBtnWrap: { flex: 1, borderRadius: 14, overflow: "hidden" },
   signupSummary: {
     marginTop: 18,
@@ -1190,9 +1165,9 @@ const s = StyleSheet.create({
     borderColor: "rgba(49,47,184,0.12)",
     backgroundColor: "#F6F5FF",
   },
-  signupSummaryLabel: { fontSize: 11, fontWeight: "800", color: "#312FB8", letterSpacing: 0.4, marginBottom: 6 },
-  signupSummaryValue: { fontSize: 14, fontWeight: "700", color: "#1a1a2e" },
-  signupSummaryMeta: { fontSize: 12, color: "#6E7391", marginTop: 3 },
+  signupSummaryLabel: { fontSize: 11, fontFamily: "Outfit_600SemiBold", color: "#312FB8", letterSpacing: 0, marginBottom: 6 },
+  signupSummaryValue: { fontSize: 14, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#1a1a2e" },
+  signupSummaryMeta: { fontSize: 12, color: "#6E7391", fontFamily: "Outfit_400Regular", letterSpacing: 0, marginTop: 3 },
   fixedTop: {
     backgroundColor: "#312FB8",
     borderBottomWidth: 0.5,
@@ -1206,7 +1181,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: "rgba(220,38,38,0.15)",
   },
-  errTxt: { color: "#dc2626", fontSize: 13, fontWeight: "500" },
+  errTxt: { color: "#dc2626", fontSize: 13, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
   hero: {
     paddingTop: 20,
     paddingBottom: 14,
@@ -1235,9 +1210,20 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(17,13,78,0.34)",
   },
   avatarWrap: { position: "relative", marginBottom: 14 },
-  avatar: { width: 86, height: 86, borderRadius: 24, alignItems: "center", justifyContent: "center" },
+  avatar: {
+    width: 86,
+    height: 86,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#05033A",
+    shadowOffset: { width: 0, height: 22 },
+    shadowOpacity: 0.58,
+    shadowRadius: 36,
+    elevation: 22,
+  },
   avatarImage: { width: "100%", height: "100%", borderRadius: 24 },
-  avatarTxt: { color: "#fff", fontSize: 30, fontWeight: "900" },
+  avatarTxt: { color: "#fff", fontSize: 30, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
   cameraBtn: {
     position: "absolute",
     bottom: -4,
@@ -1256,10 +1242,10 @@ const s = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  heroName: { fontSize: 20, fontWeight: "900", color: "#fff", letterSpacing: -0.3 },
-  heroSub: { fontSize: 13, color: "rgba(235,233,255,0.82)", fontWeight: "500", marginTop: 4, textTransform: "capitalize" },
+  heroName: { fontSize: 20, fontFamily: "Outfit_700Bold", color: "#fff", letterSpacing: 0 },
+  heroSub: { fontSize: 13, color: "rgba(235,233,255,0.82)", fontFamily: "Outfit_400Regular", letterSpacing: 0, marginTop: 4, textTransform: "capitalize" },
   heroBioWrap: { marginTop: 14, minHeight: 36, width: "100%" },
-  heroBio: { minHeight: 36, fontSize: 13, lineHeight: 18, color: "rgba(255,255,255,0.88)", textAlign: "center", paddingHorizontal: 20 },
+  heroBio: { minHeight: 36, fontSize: 13, lineHeight: 18, color: "rgba(255,255,255,0.88)", textAlign: "center", paddingHorizontal: 20, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
   heroBioMuted: { color: "rgba(220,217,255,0.64)" },
   heroBioInput: {
     minHeight: 60,
@@ -1274,6 +1260,8 @@ const s = StyleSheet.create({
     marginHorizontal: 20,
     fontSize: 13,
     lineHeight: 18,
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
     color: "#3f4560",
   },
   heroBioMetaRow: { marginTop: 6, marginHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "center" },
@@ -1286,9 +1274,9 @@ const s = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.24)",
     backgroundColor: "rgba(255,255,255,0.12)",
   },
-  heroBioActionTxt: { fontSize: 11, fontWeight: "700", color: "#fff" },
+  heroBioActionTxt: { fontSize: 11, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#fff" },
   savedStateBtn: { backgroundColor: "#DFF7E8", borderColor: "#BDE8CD" },
-  savedStateBtnText: { fontSize: 12, fontWeight: "700", color: "#0A7A3E" },
+  savedStateBtnText: { fontSize: 12, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#0A7A3E" },
 
   section: { paddingHorizontal: 16, marginTop: 22 },
   sectionHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
@@ -1303,7 +1291,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  secLabel: { fontSize: 13, fontWeight: "800", color: "#1a1a2e" },
+  secLabel: { fontSize: 13, fontFamily: "Outfit_700Bold", letterSpacing: 0, color: "#1a1a2e" },
   editBtn: {
     borderRadius: 12,
     borderWidth: 1,
@@ -1314,7 +1302,7 @@ const s = StyleSheet.create({
     minWidth: 138,
     alignItems: "center",
   },
-  editBtnText: { fontSize: 12, fontWeight: "700", color: "#312FB8" },
+  editBtnText: { fontSize: 12, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#312FB8" },
   editBtnContent: { flexDirection: "row", alignItems: "center", gap: 6 },
 
   cardNoIcon: {
@@ -1325,8 +1313,8 @@ const s = StyleSheet.create({
     padding: 14,
     gap: 8,
   },
-  fieldLabel: { fontSize: 11, fontWeight: "700", color: "#8f94a6", marginTop: 8 },
-  valueText: { fontSize: 14, color: "#1a1a2e", lineHeight: 20 },
+  fieldLabel: { fontSize: 11, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#8f94a6", marginTop: 8 },
+  valueText: { fontSize: 14, color: "#1a1a2e", lineHeight: 20, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
   input: {
     height: 48,
     borderRadius: 12,
@@ -1334,6 +1322,8 @@ const s = StyleSheet.create({
     borderColor: "rgba(49,47,184,0.15)",
     paddingHorizontal: 14,
     fontSize: 14,
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
     color: "#1a1a2e",
     backgroundColor: "#fafafe",
   },
@@ -1349,12 +1339,12 @@ const s = StyleSheet.create({
     backgroundColor: "#fafafe",
   },
   chipOn: { backgroundColor: "#312FB8", borderColor: "#312FB8" },
-  chipTxt: { fontSize: 12, fontWeight: "600", color: "#555" },
-  chipTxtOn: { color: "#fff" },
+  chipTxt: { fontSize: 12, fontFamily: "Outfit_400Regular", letterSpacing: 0, color: "#555" },
+  chipTxtOn: { color: "#fff", fontFamily: "Outfit_600SemiBold", letterSpacing: 0 },
 
   passwordRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   inlineAction: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: "#EEEDFE" },
-  inlineActionText: { color: "#312FB8", fontSize: 12, fontWeight: "700" },
+  inlineActionText: { color: "#312FB8", fontSize: 12, fontFamily: "Outfit_600SemiBold", letterSpacing: 0 },
 
   signOut: {
     flexDirection: "row",
@@ -1369,7 +1359,7 @@ const s = StyleSheet.create({
     borderColor: "rgba(220,38,38,0.16)",
     backgroundColor: "#FFF3F3",
   },
-  signOutTxt: { fontSize: 15, fontWeight: "700", color: "#dc2626" },
+  signOutTxt: { fontSize: 15, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#dc2626" },
   cameraBackdrop: { flex: 1, backgroundColor: "rgba(15,18,40,0.56)", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
   cameraModalCard: {
     width: "100%",
@@ -1400,8 +1390,8 @@ const s = StyleSheet.create({
     zIndex: 2,
   },
   cameraHeader: { paddingTop: 28, paddingBottom: 20, paddingHorizontal: 18 },
-  cameraTitle: { fontSize: 18, fontWeight: "900", color: "#171A34" },
-  cameraSubtitle: { marginTop: 4, fontSize: 12, color: "#6E7391", lineHeight: 18 },
+  cameraTitle: { fontSize: 18, fontFamily: "Outfit_700Bold", letterSpacing: 0, color: "#171A34" },
+  cameraSubtitle: { marginTop: 4, fontSize: 12, color: "#6E7391", lineHeight: 18, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
   cameraActionsGrid: { padding: 16, flexDirection: "row", justifyContent: "space-between", gap: 12 },
   cameraOptionTile: {
     flex: 1,
@@ -1423,7 +1413,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 10,
   },
-  cameraOptionLabel: { fontSize: 13, fontWeight: "800", color: "#312FB8", textAlign: "center" },
+  cameraOptionLabel: { fontSize: 13, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#312FB8", textAlign: "center" },
   signOutBackdrop: { flex: 1, backgroundColor: "rgba(15,18,40,0.56)", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
   signOutModalCard: {
     width: "100%",
@@ -1432,30 +1422,28 @@ const s = StyleSheet.create({
     borderRadius: 28,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(220,38,38,0.14)",
+    borderColor: "rgba(49,47,184,0.10)",
     shadowColor: "#1B196A",
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.18,
     shadowRadius: 30,
     elevation: 12,
   },
-  signOutCloseBtn: {
-    position: "absolute",
-    top: 14,
-    right: 14,
-    width: 28,
-    height: 28,
-    borderRadius: 10,
-    backgroundColor: "rgba(255,255,255,0.92)",
+  signOutHeader: { paddingTop: 28, paddingBottom: 20, paddingHorizontal: 18, backgroundColor: "#FFFFFF", alignItems: "center" },
+  signOutBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: "#EEF0FF",
     borderWidth: 1,
-    borderColor: "rgba(220,38,38,0.18)",
+    borderColor: "rgba(49,47,184,0.14)",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 2,
+    marginBottom: 12,
+    alignSelf: "center",
   },
-  signOutHeader: { paddingTop: 28, paddingBottom: 20, paddingHorizontal: 18 },
-  signOutTitle: { fontSize: 18, fontWeight: "900", color: "#481212" },
-  signOutSubtitle: { marginTop: 4, fontSize: 12, color: "#8A4B4B", lineHeight: 18 },
+  signOutTitle: { fontSize: 20, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#121426", marginBottom: 8, textAlign: "center" },
+  signOutSubtitle: { fontSize: 14, color: "#5C6278", lineHeight: 18, fontFamily: "Outfit_400Regular", letterSpacing: 0, textAlign: "center" },
   signOutActions: { flexDirection: "row", gap: 10, padding: 16 },
   signOutCancelBtn: {
     flex: 1,
@@ -1467,7 +1455,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  signOutCancelTxt: { fontSize: 13, fontWeight: "700", color: "#312FB8" },
+  signOutCancelTxt: { fontSize: 13, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#312FB8" },
   signOutConfirmBtn: {
     flex: 1,
     height: 48,
@@ -1478,7 +1466,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     gap: 6,
   },
-  signOutConfirmTxt: { fontSize: 13, fontWeight: "700", color: "#fff" },
+  signOutConfirmTxt: { fontSize: 13, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#fff" },
 });
 
 const ms = StyleSheet.create({
@@ -1500,7 +1488,7 @@ const ms = StyleSheet.create({
   },
   handle: { width: 44, height: 5, borderRadius: 3, backgroundColor: "#DADCF0", alignSelf: "center", marginBottom: 18 },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
-  title: { fontSize: 20, fontWeight: "900", color: "#171A34" },
+  title: { fontSize: 20, fontFamily: "Outfit_700Bold", letterSpacing: 0, color: "#171A34" },
   closeBtn: {
     width: 34,
     height: 34,
@@ -1518,14 +1506,16 @@ const ms = StyleSheet.create({
     borderColor: "rgba(49,47,184,0.15)",
     paddingHorizontal: 16,
     fontSize: 15,
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
     color: "#1a1a2e",
     backgroundColor: "#fafafe",
     marginBottom: 20,
   },
   saveWrap: { borderRadius: 16, overflow: "hidden" },
   saveBtn: { height: 52, alignItems: "center", justifyContent: "center" },
-  saveTxt: { color: "#fff", fontSize: 16, fontWeight: "800" },
-  fieldLabel: { fontSize: 11, fontWeight: "700", color: "#555", letterSpacing: 0.5, marginBottom: 8 },
+  saveTxt: { color: "#fff", fontSize: 16, fontFamily: "Outfit_600SemiBold", letterSpacing: 0 },
+  fieldLabel: { fontSize: 11, fontFamily: "Outfit_600SemiBold", color: "#555", letterSpacing: 0, marginBottom: 8 },
   errBox: {
     backgroundColor: "rgba(220,38,38,0.08)",
     borderWidth: 1,
@@ -1534,7 +1524,7 @@ const ms = StyleSheet.create({
     padding: 12,
     marginBottom: 16,
   },
-  errTxt: { color: "#dc2626", fontSize: 13, fontWeight: "500" },
+  errTxt: { color: "#dc2626", fontSize: 13, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
   eyeBtn: { position: "absolute", right: 14, top: 16 },
   textarea: { height: 100, paddingTop: 14, paddingBottom: 14 },
 });

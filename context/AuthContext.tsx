@@ -9,7 +9,15 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, AUTH_URL, DB_URL } from "../constants/
 // Types
 // ─────────────────────────────────────────────────────────────
 
-export type UserRole     = "developer" | "investor" | "broker" | "architect" | "tech";
+export type UserRole =
+  | "real_estate_developer"
+  | "investor"
+  | "banker_financial_institution"
+  | "proptech_technology"
+  | "broker_consultant"
+  | "architect_designer"
+  | "academia";
+type BackendUserRole = "developer" | "investor" | "broker" | "architect" | "tech";
 export type UserLocation = "karachi" | "lahore" | "islamabad" | "uae" | "ksa" | "other";
 export type MembershipTier = "free" | "starter" | "professional" | "enterprise";
 
@@ -126,13 +134,55 @@ function dbHeaders(token: string) {
   };
 }
 
+export function normalizeUserRole(role: string | null | undefined): UserRole | null {
+  if (!role) return null;
+
+  const map: Record<string, UserRole> = {
+    real_estate_developer: "real_estate_developer",
+    developer: "real_estate_developer",
+    investor: "investor",
+    banker_financial_institution: "banker_financial_institution",
+    proptech_technology: "proptech_technology",
+    tech: "proptech_technology",
+    broker_consultant: "broker_consultant",
+    broker: "broker_consultant",
+    architect_designer: "architect_designer",
+    architect: "architect_designer",
+    academia: "academia",
+  };
+
+  return map[role] ?? null;
+}
+
+function serializeUserRole(role: UserRole | null | undefined): BackendUserRole | null {
+  if (!role) return null;
+
+  const map: Record<UserRole, BackendUserRole> = {
+    real_estate_developer: "developer",
+    investor: "investor",
+    banker_financial_institution: "investor",
+    proptech_technology: "tech",
+    broker_consultant: "broker",
+    architect_designer: "architect",
+    academia: "tech",
+  };
+
+  return map[role];
+}
+
 async function fetchProfile(userId: string, token: string): Promise<Profile | null> {
   const res = await fetch(`${DB_URL}/profiles?id=eq.${userId}&select=*`, {
     headers: dbHeaders(token),
   });
   if (!res.ok) return null;
   const rows = await res.json();
-  return rows[0] ?? null;
+  const profile = rows[0] ?? null;
+  if (!profile) return null;
+
+  return {
+    ...profile,
+    role: normalizeUserRole(profile.role),
+  };
 }
 
 async function fetchMembership(userId: string, token: string): Promise<Membership | null> {
@@ -157,12 +207,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [membership, setMembership] = useState<Membership | null>(null);
   const [isLoading,  setIsLoading]  = useState(true);
 
+  const userRef = useRef<{ id: string; email: string } | null>(null);
   const atRef = useRef<string | null>(null); // access token ref for sync access
   const rtRef = useRef<string | null>(null); // refresh token ref
 
   // ── Persist session ─────────────────────────────────────────
 
   const saveSession = async (session: StoredSession) => {
+    userRef.current = session.user;
     atRef.current = session.access_token;
     rtRef.current = session.refresh_token;
     setUser(session.user);
@@ -170,6 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const clearSession = async () => {
+    userRef.current = null;
     atRef.current = null;
     rtRef.current = null;
     setUser(null);
@@ -205,6 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const token = refreshed?.access_token ?? session.access_token;
         const rt    = refreshed?.refresh_token ?? session.refresh_token;
 
+        userRef.current = session.user;
         atRef.current = token;
         rtRef.current = rt;
         setUser(session.user);
@@ -309,18 +363,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const createProfile = async (
     data: Omit<Profile, "id" | "is_verified" | "created_at">
   ): Promise<{ error?: string }> => {
-    if (!user || !atRef.current) return { error: "Not authenticated" };
+    const currentUser = userRef.current;
+    if (!currentUser || !atRef.current) return { error: "Not authenticated" };
     try {
+      const payload = {
+        id: currentUser.id,
+        ...data,
+        role: serializeUserRole(data.role),
+        is_verified: false,
+      };
       const res = await apiFetch("/profiles", {
         method: "POST",
-        body: JSON.stringify({ id: user.id, ...data, is_verified: false }),
+        body: JSON.stringify(payload),
       });
       const result = await res.json();
       if (!res.ok) {
         return { error: result[0]?.message ?? result.message ?? "Failed to create profile" };
       }
       const created = Array.isArray(result) ? result[0] : result;
-      setProfile(created);
+      setProfile({
+        ...created,
+        role: normalizeUserRole(created.role),
+      });
       setMembership({ tier: "free", status: "active", expires_at: null });
       return {};
     } catch (e) {
@@ -329,15 +393,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateProfile = async (data: Partial<Profile>): Promise<{ error?: string }> => {
-    if (!user || !atRef.current) return { error: "Not authenticated" };
+    const currentUser = userRef.current;
+    if (!currentUser || !atRef.current) return { error: "Not authenticated" };
     try {
       const payload = Object.fromEntries(
         Object.entries(data).filter(([, value]) => value !== undefined)
       );
+      if ("role" in payload) {
+        payload.role = serializeUserRole(payload.role as UserRole | null | undefined);
+      }
 
       console.log("[AuthContext] updateProfile payload:", payload);
 
-      const res = await apiFetch(`/profiles?id=eq.${user.id}`, {
+      const res = await apiFetch(`/profiles?id=eq.${currentUser.id}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
       });
@@ -351,13 +419,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("[AuthContext] updateProfile patch response:", updated);
 
       // Verify by reading latest profile from Supabase immediately after patch.
-      const latest = await fetchProfile(user.id, atRef.current);
+      const latest = await fetchProfile(currentUser.id, atRef.current);
       if (latest) {
         setProfile(latest);
         console.log("[AuthContext] updateProfile verified with fresh DB read:", latest);
       } else {
         // Fallback to patch response if fresh read fails.
-        setProfile(updated);
+        setProfile({
+          ...updated,
+          role: normalizeUserRole(updated.role),
+        });
         console.warn("[AuthContext] updateProfile patched but fresh DB read failed; using patch response.");
       }
 
@@ -369,8 +440,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshProfile = async () => {
-    if (!user || !atRef.current) return;
-    await loadUserData(user.id, atRef.current);
+    const currentUser = userRef.current;
+    if (!currentUser || !atRef.current) return;
+    await loadUserData(currentUser.id, atRef.current);
   };
 
   return (
