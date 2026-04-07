@@ -83,5 +83,5 @@ const styles = StyleSheet.create({
   avatarImg:   { width: 34, height: 34, borderRadius: 10 },
   avatarTxt:   { color: "#fff", fontSize: 12, fontWeight: "700" },
   signInBtn:   { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, backgroundColor: "#EEEDFE", borderWidth: 1, borderColor: "rgba(49,47,184,0.2)" },
-  signInTxt:   { fontSize: 13, fontWeight: "600", color: "#312FB8" },
+  signInTxt:   { fontSize: 13, fontFamily: "Outfit_600SemiBold", color: "#312FB8" },
 });

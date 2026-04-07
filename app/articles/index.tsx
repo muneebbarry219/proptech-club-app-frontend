@@ -169,7 +169,7 @@ const s = StyleSheet.create({
   tag:         { backgroundColor: "#EEEDFE", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
   tagTxt:      { fontSize: 10, fontWeight: "700", color: "#3C3489" },
   cardTitle:   { fontSize: 16, fontWeight: "800", color: "#1A1A2E", lineHeight: 22, marginBottom: 6 },
-  cardExcerpt: { fontSize: 13, color: "#666", lineHeight: 19, marginBottom: 10 },
+  cardExcerpt: { fontSize: 13, color: "#666", lineHeight: 19, marginBottom: 10, fontFamily: "Outfit_400Regular" },
   cardMeta:    { flexDirection: "row", alignItems: "center", gap: 6 },
   cardAuthor:  { fontSize: 12, fontWeight: "600", color: "#312FB8" },
   cardDot:     { fontSize: 12, color: "#CCC" },

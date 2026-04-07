@@ -27,7 +27,7 @@ export default function BottomNav() {
   };
 
   const handlePress = (route: string) => {
-    if (route === "/members" && !isAuthenticated) {
+    if (!isAuthenticated && (route === "/members" || route === "/events")) {
       setShowAuthPrompt(true);
       return;
     }

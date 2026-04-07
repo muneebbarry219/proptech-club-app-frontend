@@ -23,7 +23,7 @@ export interface EventOverrideShape {
 const CURATED_EVENT_COPY = {
   title: "PropTech Club Eid Meet & Greet",
   description:
-    "We’re curating a private PropTech Club Eid Meet & Greet — a closed-door gathering bringing together developers, capital, and key enablers from the real estate ecosystem.\n\nThe idea is simple:\nA focused room for meaningful conversations, alignment, and long-term collaboration.\n\nSeats are intentionally limited.\n\nIf you’d like to be considered, you can share your details here:\nhttps://forms.gle/M21o61hr19NFycgE8\n\n— Atif",
+    "A curated, invite-only gathering bringing together developers, capital, and key enablers from the real estate and PropTech ecosystem.\n\nDesigned as a closed-door interaction, the evening focuses on meaningful conversations, strategic alignment, and shared perspectives on the evolving real estate landscape in Sindh.\n\nSeats are intentionally limited",
   event_date: "2026-04-11T17:30:00+05:00",
   end_date: null,
   venue: "Tapestry Cafe",
@@ -69,3 +69,4 @@ export function getEventCoverSource(event: Pick<EventOverrideShape, "member_only
 
   return null;
 }
+

@@ -90,10 +90,10 @@ const ROLE_COLORS: Record<string, string> = {
 
 const SPONSOR_TIER_ORDER = ["title", "gold", "silver", "bronze", "partner"];
 const SPONSOR_TIER_COLORS: Record<string, { bg: string; text: string }> = {
-  title:   { bg: "#FAEEDA", text: "#412402" },
-  gold:    { bg: "#FFF8E7", text: "#633806" },
-  silver:  { bg: "#F5F5F5", text: "#444441" },
-  bronze:  { bg: "#FAECE7", text: "#712B13" },
+  title: { bg: "#FAEEDA", text: "#412402" },
+  gold: { bg: "#FFF8E7", text: "#633806" },
+  silver: { bg: "#F5F5F5", text: "#444441" },
+  bronze: { bg: "#FAECE7", text: "#712B13" },
   partner: { bg: "#EEEDFE", text: "#3C3489" },
 };
 
@@ -145,11 +145,11 @@ function JoinModal({
   userId: string;
   registrationType: "open" | "exclusive";
 }) {
-  const [step,    setStep]    = useState<"role" | "review">("role");
-  const [role,    setRole]    = useState<JoinRole | null>(null);
+  const [step, setStep] = useState<"role" | "review">("role");
+  const [role, setRole] = useState<JoinRole | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState("");
+  const [error, setError] = useState("");
 
   const reset = () => { setStep("role"); setRole(null); setMessage(""); setError(""); };
 
@@ -225,7 +225,7 @@ function JoinModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <Pressable style={ms.backdrop} onPress={handleClose}>
-          <Pressable style={ms.sheet} onPress={() => {}}>
+          <Pressable style={ms.sheet} onPress={() => { }}>
             <View style={ms.handle} />
 
             {/* Header */}
@@ -252,8 +252,8 @@ function JoinModal({
               <View style={ms.roleGrid}>
                 {([
                   { role: "attendee" as JoinRole, icon: "🎟️", title: "Attendee", desc: registrationType === "open" ? "Free · Instant confirmation" : "Request to attend · Pending approval" },
-                  { role: "speaker"  as JoinRole, icon: "🎤", title: "Speaker",  desc: "Submit your topic for review" },
-                  { role: "sponsor"  as JoinRole, icon: "🤝", title: "Sponsor",  desc: "Partner with us for this event" },
+                  { role: "speaker" as JoinRole, icon: "🎤", title: "Speaker", desc: "Submit your topic for review" },
+                  { role: "sponsor" as JoinRole, icon: "🤝", title: "Sponsor", desc: "Partner with us for this event" },
                 ] as const).map(opt => (
                   <TouchableOpacity
                     key={opt.role}
@@ -333,21 +333,21 @@ function JoinModal({
 // ── Main Screen ────────────────────────────────────────────────
 
 export default function EventDetailScreen() {
-  const { id }  = useLocalSearchParams<{ id: string }>();
-  const router  = useRouter();
-  const insets  = useSafeAreaInsets();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, profile, apiFetch, isAuthenticated } = useAuth();
 
-  const [event,      setEvent]      = useState<EventDetail | null>(null);
-  const [speakers,   setSpeakers]   = useState<Speaker[]>([]);
-  const [sponsors,   setSponsors]   = useState<Sponsor[]>([]);
-  const [agenda,     setAgenda]     = useState<AgendaItem[]>([]);
-  const [attendees,  setAttendees]  = useState<Attendee[]>([]);
-  const [attCount,   setAttCount]   = useState(0);
+  const [event, setEvent] = useState<EventDetail | null>(null);
+  const [speakers, setSpeakers] = useState<Speaker[]>([]);
+  const [sponsors, setSponsors] = useState<Sponsor[]>([]);
+  const [agenda, setAgenda] = useState<AgendaItem[]>([]);
+  const [attendees, setAttendees] = useState<Attendee[]>([]);
+  const [attCount, setAttCount] = useState(0);
   const [userStatus, setUserStatus] = useState<"confirmed" | "pending" | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [showJoin,   setShowJoin]   = useState(false);
-  const [joining,    setJoining]    = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showJoin, setShowJoin] = useState(false);
+  const [joining, setJoining] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -378,7 +378,7 @@ export default function EventDetailScreen() {
         const nextSponsors = await spsRes.json();
         setSponsors(nextEvent?.member_only ? [] : nextSponsors);
       }
-      if (agRes.ok)  {
+      if (agRes.ok) {
         const nextAgenda = await agRes.json();
         setAgenda(nextEvent?.member_only ? [] : nextAgenda);
       }
@@ -453,7 +453,7 @@ export default function EventDetailScreen() {
       status === "confirmed"
         ? "You have been added to the attendees list."
         : "Our team will review your request and get back to you soon."
-      );
+    );
   };
 
   const handleMemberJoin = async () => {
@@ -647,7 +647,7 @@ export default function EventDetailScreen() {
                     <ActivityIndicator color="#FFF" />
                   ) : (
                     <Text style={s.joinBtnTxt}>
-                      {isMemberOnly ? "Open Consideration Form →" : event.registration_type === "open" ? "Join this Event →" : "Request to Join →"}
+                      {isMemberOnly ? "Join The Event" : event.registration_type === "open" ? "Join The Event" : "Request to Join →"}
                     </Text>
                   )}
                 </LinearGradient>
@@ -659,9 +659,12 @@ export default function EventDetailScreen() {
         {!isPast && isMemberOnly && (
           <View style={s.section}>
             <View style={s.noticeCard}>
+              <View style={s.noticeIcon}>
+                <Text style={s.noticeIconTxt}>i</Text>
+              </View>
               <Text style={s.noticeTitle}>Private, member-led gathering</Text>
               <Text style={s.noticeText}>
-                The event page and attendee list are public to view, but only registered PropTech Club members can join from the app.
+                Only registered PropTech Club members can join from the app.
               </Text>
             </View>
           </View>
@@ -860,105 +863,107 @@ export default function EventDetailScreen() {
 // ── Styles ─────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  container:        { flex: 1, backgroundColor: "#F8F8FC" },
-  backHdr:          { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#FFF", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: "rgba(49,47,184,0.08)" },
-  backBtn:          { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(49,47,184,0.08)", alignItems: "center", justifyContent: "center" },
-  backTitle:        { fontSize: 15, fontFamily: "Outfit_700Bold", color: "#1A1A2E", flex: 1, textAlign: "center" },
-  hero:             { marginHorizontal: 16, marginTop: 16, borderRadius: 20, overflow: "hidden", position: "relative" },
-  heroImage:        { resizeMode: "cover" },
-  heroTopBadges:    { position: "absolute", top: 20, left: 16, right: 16, zIndex: 2 },
-  heroOverlay:      { paddingHorizontal: 16, paddingTop: 96, paddingBottom: 20, minHeight: 220, justifyContent: "flex-end" },
-  heroBadges:       { flexDirection: "row", gap: 8, alignSelf: "flex-start" },
-  typePill:         { backgroundColor: "rgba(255,255,255,0.18)", borderWidth: 1, borderColor: "rgba(255,255,255,0.25)", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  typePillTxt:      { color: "#FFF", fontSize: 10, fontFamily: "Outfit_700Bold", letterSpacing: 0.5 },
-  pastPill:         { backgroundColor: "#EF9F27", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  pastPillTxt:      { color: "#412402", fontSize: 10, fontFamily: "Outfit_700Bold" },
-  regPill:          { backgroundColor: "rgba(255,255,255,0.15)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  regPillExcl:      { backgroundColor: "rgba(212,83,126,0.25)", borderColor: "rgba(212,83,126,0.4)" },
-  regPillTxt:       { color: "#FFF", fontSize: 10, fontFamily: "Outfit_700Bold" },
-  heroTitle:        { color: "#FFF", fontSize: 20, fontFamily: "Outfit_700Bold", lineHeight: 26, marginBottom: 8 },
-  heroMetaInline:   { flexDirection: "row", alignItems: "center", flexWrap: "wrap", columnGap: 14, rowGap: 6 },
-  heroMetaRow:      { flexDirection: "row", alignItems: "center", gap: 6 },
-  heroMeta:         { color: "rgba(255,255,255,0.9)", fontSize: 12, fontFamily: "Outfit_500Medium", lineHeight: 18, flexShrink: 1 },
-  reportBar:        { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginHorizontal: 16, marginBottom: 12, backgroundColor: "#FAEEDA", borderRadius: 14, padding: 14 },
-  reportBarTitle:   { fontSize: 13, fontFamily: "Outfit_700Bold", color: "#412402", marginBottom: 2 },
-  reportBarSub:     { fontSize: 11, color: "#854F0B", fontFamily: "Outfit_400Regular" },
-  reportBarBtn:     { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#EF9F27", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
-  reportBarBtnTxt:  { fontSize: 12, fontFamily: "Outfit_700Bold", color: "#412402" },
-  ctaWrap:          { paddingHorizontal: 16, marginTop: 10, marginBottom: 18 },
-  ctaRow:           { flexDirection: "row", gap: 10 },
-  joinBtn:          { borderRadius: 14, overflow: "hidden" },
-  joinBtnGrad:      { paddingVertical: 14, alignItems: "center" },
-  joinBtnTxt:       { color: "#FFF", fontSize: 16, fontFamily: "Outfit_700Bold" },
-  attendingCard:    { flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#E1F5EE", borderRadius: 14, paddingVertical: 14 },
-  attendingTxt:     { color: "#085041", fontSize: 14, fontFamily: "Outfit_700Bold" },
-  cancelCard:       { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#FFF", borderRadius: 14, borderWidth: 1.5, borderColor: "rgba(220,38,38,0.2)", paddingVertical: 14 },
-  cancelTxt:        { color: "#DC2626", fontSize: 12, fontFamily: "Outfit_700Bold" },
-  pendingCard:      { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#FAEEDA", borderRadius: 14, paddingVertical: 14 },
-  pendingTxt:       { color: "#633806", fontSize: 14, fontFamily: "Outfit_700Bold" },
-  section:          { paddingHorizontal: 16, marginTop: 20 },
-  secTitle:         { fontSize: 15, fontFamily: "Outfit_700Bold", color: "#1A1A2E", marginBottom: 12 },
-  noticeCard:       { backgroundColor: "#FFF7E8", borderRadius: 14, borderWidth: 1, borderColor: "rgba(239,159,39,0.22)", padding: 14 },
-  noticeTitle:      { fontSize: 14, fontFamily: "Outfit_700Bold", color: "#412402", marginBottom: 6 },
-  noticeText:       { fontSize: 12, color: "#6B4A12", lineHeight: 18, fontFamily: "Outfit_400Regular" },
-  descCard:         { backgroundColor: "#FFF", borderRadius: 14, borderWidth: 0.5, borderColor: "rgba(49,47,184,0.08)", padding: 14 },
-  descText:         { fontSize: 13, color: "#555", lineHeight: 20, fontFamily: "Outfit_400Regular" },
-  dayLabel:         { backgroundColor: "#EEEDFE", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 5, alignSelf: "flex-start", marginBottom: 8 },
-  dayLabelTxt:      { fontSize: 11, fontFamily: "Outfit_700Bold", color: "#3C3489" },
-  agendaRow:        { flexDirection: "row", gap: 10, marginBottom: 8 },
-  agendaTime:       { fontSize: 11, fontFamily: "Outfit_700Bold", color: "#312FB8", minWidth: 56, paddingTop: 10 },
-  agendaCard:       { flex: 1, backgroundColor: "#FFF", borderRadius: 12, borderWidth: 0.5, borderColor: "rgba(49,47,184,0.08)", padding: 10 },
-  agendaTitle:      { fontSize: 13, fontFamily: "Outfit_700Bold", color: "#1A1A2E", marginBottom: 3 },
-  agendaSpeaker:    { fontSize: 11, color: "#312FB8", fontFamily: "Outfit_600SemiBold" },
-  agendaDesc:       { fontSize: 11, color: "#888", marginTop: 3, lineHeight: 16, fontFamily: "Outfit_400Regular" },
-  speakerScroll:    { gap: 10, paddingBottom: 4 },
-  speakerCard:      { width: 110, backgroundColor: "#FFF", borderRadius: 14, borderWidth: 0.5, borderColor: "rgba(49,47,184,0.08)", padding: 12, alignItems: "center" },
-  keynoteBadge:     { backgroundColor: "#FAEEDA", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, marginBottom: 6 },
-  keynoteTxt:       { fontSize: 8, fontFamily: "Outfit_700Bold", color: "#633806" },
-  speakerAv:        { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", marginBottom: 8 },
-  speakerAvTxt:     { color: "#FFF", fontSize: 14, fontFamily: "Outfit_700Bold" },
-  speakerName:      { fontSize: 11, fontFamily: "Outfit_700Bold", color: "#1A1A2E", textAlign: "center", marginBottom: 2 },
-  speakerCompany:   { fontSize: 10, color: "#888", textAlign: "center", marginBottom: 3, fontFamily: "Outfit_400Regular" },
-  speakerTopic:     { fontSize: 10, color: "#312FB8", textAlign: "center", lineHeight: 14, fontFamily: "Outfit_400Regular" },
-  speakerProfile:   { fontSize: 9, color: "#312FB8", fontFamily: "Outfit_700Bold", marginTop: 6 },
-  sponsorTier:      { marginBottom: 12 },
+  container: { flex: 1, backgroundColor: "#F8F8FC" },
+  backHdr: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#FFF", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: "rgba(49,47,184,0.08)" },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(49,47,184,0.08)", alignItems: "center", justifyContent: "center" },
+  backTitle: { fontSize: 15, fontFamily: "Outfit_700Bold", color: "#1A1A2E", flex: 1, textAlign: "center" },
+  hero: { marginHorizontal: 16, marginTop: 16, borderRadius: 20, overflow: "hidden", position: "relative" },
+  heroImage: { resizeMode: "cover" },
+  heroTopBadges: { position: "absolute", top: 20, left: 16, right: 16, zIndex: 2 },
+  heroOverlay: { paddingHorizontal: 16, paddingTop: 96, paddingBottom: 20, minHeight: 220, justifyContent: "flex-end" },
+  heroBadges: { flexDirection: "row", gap: 8, alignSelf: "flex-start" },
+  typePill: { backgroundColor: "rgba(255,255,255,0.18)", borderWidth: 1, borderColor: "rgba(255,255,255,0.25)", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  typePillTxt: { color: "#FFF", fontSize: 10, fontFamily: "Outfit_700Bold", letterSpacing: 0.5 },
+  pastPill: { backgroundColor: "#EF9F27", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  pastPillTxt: { color: "#412402", fontSize: 10, fontFamily: "Outfit_700Bold" },
+  regPill: { backgroundColor: "rgba(255,255,255,0.15)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  regPillExcl: { backgroundColor: "rgba(212,83,126,0.25)", borderColor: "rgba(212,83,126,0.4)" },
+  regPillTxt: { color: "#FFF", fontSize: 10, fontFamily: "Outfit_700Bold" },
+  heroTitle: { color: "#FFF", fontSize: 20, fontFamily: "Outfit_700Bold", lineHeight: 26, marginBottom: 8 },
+  heroMetaInline: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", columnGap: 14, rowGap: 6 },
+  heroMetaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  heroMeta: { color: "rgba(255,255,255,0.9)", fontSize: 12, fontFamily: "Outfit_500Medium", lineHeight: 18, flexShrink: 1 },
+  reportBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginHorizontal: 16, marginBottom: 12, backgroundColor: "#FAEEDA", borderRadius: 14, padding: 14 },
+  reportBarTitle: { fontSize: 13, fontFamily: "Outfit_700Bold", color: "#412402", marginBottom: 2 },
+  reportBarSub: { fontSize: 11, color: "#854F0B", fontFamily: "Outfit_400Regular" },
+  reportBarBtn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#EF9F27", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+  reportBarBtnTxt: { fontSize: 12, fontFamily: "Outfit_700Bold", color: "#412402" },
+  ctaWrap: { paddingHorizontal: 16, marginTop: 10, marginBottom: 18 },
+  ctaRow: { flexDirection: "row", gap: 10 },
+  joinBtn: { borderRadius: 14, overflow: "hidden" },
+  joinBtnGrad: { paddingVertical: 14, alignItems: "center" },
+  joinBtnTxt: { color: "#FFF", fontSize: 16, fontFamily: "Outfit_700Bold" },
+  attendingCard: { flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#E1F5EE", borderRadius: 14, paddingVertical: 14 },
+  attendingTxt: { color: "#085041", fontSize: 14, fontFamily: "Outfit_700Bold" },
+  cancelCard: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#FFF", borderRadius: 14, borderWidth: 1.5, borderColor: "rgba(220,38,38,0.2)", paddingVertical: 14 },
+  cancelTxt: { color: "#DC2626", fontSize: 12, fontFamily: "Outfit_700Bold" },
+  pendingCard: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#FAEEDA", borderRadius: 14, paddingVertical: 14 },
+  pendingTxt: { color: "#633806", fontSize: 14, fontFamily: "Outfit_700Bold" },
+  section: { paddingHorizontal: 16, marginTop: 20 },
+  secTitle: { fontSize: 15, fontFamily: "Outfit_700Bold", color: "#1A1A2E", marginBottom: 12 },
+  noticeCard: { backgroundColor: "#FFF7E8", borderRadius: 14, borderWidth: 1, borderColor: "rgba(239,159,39,0.22)", padding: 14 },
+  noticeIcon: { width: 20, height: 20, borderRadius: 10, backgroundColor: "rgba(239,159,39,0.2)", alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  noticeIconTxt: { fontSize: 12, lineHeight: 12, color: "#854F0B", fontFamily: "Outfit_700Bold" },
+  noticeTitle: { fontSize: 14, fontFamily: "Outfit_700Bold", color: "#412402", marginBottom: 6 },
+  noticeText: { fontSize: 12, color: "#6B4A12", lineHeight: 18, fontFamily: "Outfit_400Regular" },
+  descCard: { backgroundColor: "#FFF", borderRadius: 14, borderWidth: 0.5, borderColor: "rgba(49,47,184,0.08)", padding: 14 },
+  descText: { fontSize: 13, color: "#555", lineHeight: 20, fontFamily: "Outfit_400Regular" },
+  dayLabel: { backgroundColor: "#EEEDFE", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 5, alignSelf: "flex-start", marginBottom: 8 },
+  dayLabelTxt: { fontSize: 11, fontFamily: "Outfit_700Bold", color: "#3C3489" },
+  agendaRow: { flexDirection: "row", gap: 10, marginBottom: 8 },
+  agendaTime: { fontSize: 11, fontFamily: "Outfit_700Bold", color: "#312FB8", minWidth: 56, paddingTop: 10 },
+  agendaCard: { flex: 1, backgroundColor: "#FFF", borderRadius: 12, borderWidth: 0.5, borderColor: "rgba(49,47,184,0.08)", padding: 10 },
+  agendaTitle: { fontSize: 13, fontFamily: "Outfit_700Bold", color: "#1A1A2E", marginBottom: 3 },
+  agendaSpeaker: { fontSize: 11, color: "#312FB8", fontFamily: "Outfit_600SemiBold" },
+  agendaDesc: { fontSize: 11, color: "#888", marginTop: 3, lineHeight: 16, fontFamily: "Outfit_400Regular" },
+  speakerScroll: { gap: 10, paddingBottom: 4 },
+  speakerCard: { width: 110, backgroundColor: "#FFF", borderRadius: 14, borderWidth: 0.5, borderColor: "rgba(49,47,184,0.08)", padding: 12, alignItems: "center" },
+  keynoteBadge: { backgroundColor: "#FAEEDA", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, marginBottom: 6 },
+  keynoteTxt: { fontSize: 8, fontFamily: "Outfit_700Bold", color: "#633806" },
+  speakerAv: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  speakerAvTxt: { color: "#FFF", fontSize: 14, fontFamily: "Outfit_700Bold" },
+  speakerName: { fontSize: 11, fontFamily: "Outfit_700Bold", color: "#1A1A2E", textAlign: "center", marginBottom: 2 },
+  speakerCompany: { fontSize: 10, color: "#888", textAlign: "center", marginBottom: 3, fontFamily: "Outfit_400Regular" },
+  speakerTopic: { fontSize: 10, color: "#312FB8", textAlign: "center", lineHeight: 14, fontFamily: "Outfit_400Regular" },
+  speakerProfile: { fontSize: 9, color: "#312FB8", fontFamily: "Outfit_700Bold", marginTop: 6 },
+  sponsorTier: { marginBottom: 12 },
   sponsorTierLabel: { fontSize: 10, fontFamily: "Outfit_700Bold", color: "#AAA", letterSpacing: 1, marginBottom: 6 },
-  sponsorRow:       { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  sponsorChip:      { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  sponsorChipTxt:   { fontSize: 13, fontFamily: "Outfit_700Bold" },
-  attendeesCard:    { backgroundColor: "#FFF", borderRadius: 14, borderWidth: 0.5, borderColor: "rgba(49,47,184,0.08)", padding: 14 },
-  attAvatarRow:     { flexDirection: "row", marginBottom: 10 },
-  attAvatar:        { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFF" },
-  attAvatarTxt:     { color: "#FFF", fontSize: 10, fontFamily: "Outfit_700Bold" },
-  attNames:         { fontSize: 12, color: "#555", lineHeight: 18, fontFamily: "Outfit_400Regular" },
-  involvedRow:      { flexDirection: "row", gap: 10 },
-  involvedCard:     { flex: 1, backgroundColor: "#EEEDFE", borderRadius: 14, padding: 16, alignItems: "center" },
-  involvedTitle:    { fontSize: 14, fontFamily: "Outfit_700Bold", color: "#3C3489", marginBottom: 4 },
-  involvedDesc:     { fontSize: 11, color: "#534AB7", textAlign: "center", lineHeight: 15, fontFamily: "Outfit_400Regular" },
+  sponsorRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  sponsorChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
+  sponsorChipTxt: { fontSize: 13, fontFamily: "Outfit_700Bold" },
+  attendeesCard: { backgroundColor: "#FFF", borderRadius: 14, borderWidth: 0.5, borderColor: "rgba(49,47,184,0.08)", padding: 14 },
+  attAvatarRow: { flexDirection: "row", marginBottom: 10 },
+  attAvatar: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFF" },
+  attAvatarTxt: { color: "#FFF", fontSize: 10, fontFamily: "Outfit_700Bold" },
+  attNames: { fontSize: 12, color: "#555", lineHeight: 18, fontFamily: "Outfit_400Regular" },
+  involvedRow: { flexDirection: "row", gap: 10 },
+  involvedCard: { flex: 1, backgroundColor: "#EEEDFE", borderRadius: 14, padding: 16, alignItems: "center" },
+  involvedTitle: { fontSize: 14, fontFamily: "Outfit_700Bold", color: "#3C3489", marginBottom: 4 },
+  involvedDesc: { fontSize: 11, color: "#534AB7", textAlign: "center", lineHeight: 15, fontFamily: "Outfit_400Regular" },
 });
 
 // ── Modal styles ───────────────────────────────────────────────
 
 const ms = StyleSheet.create({
-  backdrop:     { flex: 1, backgroundColor: "rgba(10,12,24,0.55)", justifyContent: "flex-end" },
-  sheet:        { backgroundColor: "#FFF", borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40 },
-  handle:       { width: 36, height: 4, borderRadius: 2, backgroundColor: "#E0E0E0", alignSelf: "center", marginBottom: 20 },
-  headerRow:    { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 },
-  backBtn:      { width: 32, height: 32, borderRadius: 10, backgroundColor: "#F5F5F8", alignItems: "center", justifyContent: "center" },
-  headerTitle:  { fontSize: 17, fontFamily: "Outfit_700Bold", color: "#1A1A2E", textTransform: "capitalize" },
-  closeBtn:     { width: 32, height: 32, borderRadius: 10, backgroundColor: "#F5F5F8", alignItems: "center", justifyContent: "center" },
-  errBox:       { backgroundColor: "rgba(220,38,38,0.08)", borderWidth: 1, borderColor: "rgba(220,38,38,0.2)", borderRadius: 10, padding: 12, marginBottom: 16 },
-  errTxt:       { color: "#DC2626", fontSize: 13, fontFamily: "Outfit_500Medium" },
-  roleGrid:     { gap: 10 },
-  roleCard:     { flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: "#F8F8FC", borderRadius: 14, borderWidth: 1.5, borderColor: "rgba(49,47,184,0.1)", padding: 14 },
-  roleIcon:     { fontSize: 26 },
-  roleTitle:    { fontSize: 15, fontFamily: "Outfit_700Bold", color: "#1A1A2E", marginBottom: 2 },
-  roleDesc:     { fontSize: 12, color: "#888", lineHeight: 16, fontFamily: "Outfit_400Regular" },
-  roleArrow:    { fontSize: 22, color: "#CCC" },
-  reviewLabel:  { fontSize: 13, fontFamily: "Outfit_600SemiBold", color: "#555", marginBottom: 10 },
-  reviewInput:  { height: 120, borderRadius: 14, borderWidth: 1.5, borderColor: "rgba(49,47,184,0.15)", paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: "#1A1A2E", backgroundColor: "#FAFAFE", marginBottom: 12, fontFamily: "Outfit_400Regular" },
-  reviewNote:   { fontSize: 12, color: "#AAA", lineHeight: 18, marginBottom: 20, fontFamily: "Outfit_400Regular" },
-  submitWrap:   { borderRadius: 14, overflow: "hidden" },
-  submitBtn:    { paddingVertical: 14, alignItems: "center" },
-  submitTxt:    { color: "#FFF", fontSize: 16, fontFamily: "Outfit_700Bold" },
+  backdrop: { flex: 1, backgroundColor: "rgba(10,12,24,0.55)", justifyContent: "flex-end" },
+  sheet: { backgroundColor: "#FFF", borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40 },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: "#E0E0E0", alignSelf: "center", marginBottom: 20 },
+  headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 },
+  backBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: "#F5F5F8", alignItems: "center", justifyContent: "center" },
+  headerTitle: { fontSize: 17, fontFamily: "Outfit_700Bold", color: "#1A1A2E", textTransform: "capitalize" },
+  closeBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: "#F5F5F8", alignItems: "center", justifyContent: "center" },
+  errBox: { backgroundColor: "rgba(220,38,38,0.08)", borderWidth: 1, borderColor: "rgba(220,38,38,0.2)", borderRadius: 10, padding: 12, marginBottom: 16 },
+  errTxt: { color: "#DC2626", fontSize: 13, fontFamily: "Outfit_500Medium" },
+  roleGrid: { gap: 10 },
+  roleCard: { flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: "#F8F8FC", borderRadius: 14, borderWidth: 1.5, borderColor: "rgba(49,47,184,0.1)", padding: 14 },
+  roleIcon: { fontSize: 26 },
+  roleTitle: { fontSize: 15, fontFamily: "Outfit_700Bold", color: "#1A1A2E", marginBottom: 2 },
+  roleDesc: { fontSize: 12, color: "#888", lineHeight: 16, fontFamily: "Outfit_400Regular" },
+  roleArrow: { fontSize: 22, color: "#CCC" },
+  reviewLabel: { fontSize: 13, fontFamily: "Outfit_600SemiBold", color: "#555", marginBottom: 10 },
+  reviewInput: { height: 120, borderRadius: 14, borderWidth: 1.5, borderColor: "rgba(49,47,184,0.15)", paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: "#1A1A2E", backgroundColor: "#FAFAFE", marginBottom: 12, fontFamily: "Outfit_400Regular" },
+  reviewNote: { fontSize: 12, color: "#AAA", lineHeight: 18, marginBottom: 20, fontFamily: "Outfit_400Regular" },
+  submitWrap: { borderRadius: 14, overflow: "hidden" },
+  submitBtn: { paddingVertical: 14, alignItems: "center" },
+  submitTxt: { color: "#FFF", fontSize: 16, fontFamily: "Outfit_700Bold" },
 });
