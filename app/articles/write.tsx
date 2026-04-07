@@ -37,6 +37,9 @@ export default function WriteArticleScreen() {
   const [body,        setBody]        = useState("");
   const [tags,        setTags]        = useState("");
   const [coverUri,    setCoverUri]    = useState<string | null>(null);
+  const [coverBase64, setCoverBase64] = useState<string | null>(null);
+  const [coverMime,   setCoverMime]   = useState<string>("image/jpeg");
+  const [coverLoading,setCoverLoading]= useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [preview,     setPreview]     = useState(false);
   const [saving,      setSaving]      = useState(false);
@@ -92,10 +95,25 @@ export default function WriteArticleScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [16, 9],
-      quality: 0.85,
+      quality: 0.75,
+      base64: true,
     });
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      setCoverUri(result.assets[0].uri);
+    if (!result.canceled && result.assets?.[0]) {
+      const asset = result.assets[0];
+      setCoverUri(asset.uri);                          // local preview
+      setCoverBase64(asset.base64 ?? null);
+      setCoverMime(asset.mimeType ?? "image/jpeg");
+
+      // Upload immediately if we already have an article ID
+      if (id && asset.base64) {
+        const token = getAccessToken();
+        if (token) {
+          setCoverLoading(true);
+          const uploaded = await uploadArticleCover(asset.base64, id, token, asset.mimeType ?? "image/jpeg");
+          setCoverLoading(false);
+          if (uploaded) setCoverUri(uploaded);
+        }
+      }
     }
   };
 
@@ -106,14 +124,18 @@ export default function WriteArticleScreen() {
     setSaving(true);
 
     try {
-      // Upload cover if it's a local URI
+      // Upload cover if we have base64 and no permanent URL yet
       let finalCoverUrl = coverUri;
-      if (coverUri && coverUri.startsWith("file")) {
+      if (coverBase64 && coverUri && !coverUri.startsWith("http")) {
         const token = getAccessToken();
         if (token) {
           const articleId = id ?? `draft-${Date.now()}`;
-          const uploaded  = await uploadArticleCover(coverUri, articleId, token);
-          if (uploaded) finalCoverUrl = uploaded;
+          const uploaded  = await uploadArticleCover(coverBase64, articleId, token, coverMime);
+          if (uploaded) {
+            finalCoverUrl = uploaded;
+            setCoverUri(uploaded);
+            setCoverBase64(null);
+          }
         }
       }
 
@@ -222,7 +244,7 @@ export default function WriteArticleScreen() {
           <View style={{ width: 40 }} />
         </View>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
-          {coverUri && (
+          {coverUri && !coverUri.startsWith("file") && (
             <Image source={{ uri: coverUri }} style={s.previewCover} resizeMode="cover" />
           )}
           <View style={s.previewContent}>
@@ -264,8 +286,13 @@ export default function WriteArticleScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Cover image */}
-          <TouchableOpacity onPress={pickCover} style={s.coverPicker} activeOpacity={0.85}>
-            {coverUri ? (
+          <TouchableOpacity onPress={pickCover} style={s.coverPicker} activeOpacity={0.85} disabled={coverLoading}>
+            {coverLoading ? (
+              <View style={s.coverPlaceholder}>
+                <ActivityIndicator color="#312FB8" size="large" />
+                <Text style={s.coverPlaceholderTxt}>Uploading cover...</Text>
+              </View>
+            ) : coverUri ? (
               <Image source={{ uri: coverUri }} style={s.coverPreview} resizeMode="cover" />
             ) : (
               <View style={s.coverPlaceholder}>

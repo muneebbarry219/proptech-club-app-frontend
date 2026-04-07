@@ -8,23 +8,54 @@ function initials(name: string) {
 }
 
 export default function AppHeader() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const router  = useRouter();
+  const insets  = useSafeAreaInsets();
   const { profile, isAuthenticated } = useAuth();
+
+  const avatarUrl    = profile?.avatar_url ?? null;
+  const displayName  = profile?.full_name ?? "";
+
+  // Cache-bust using updated_at so image refreshes after upload
+  const displayUri = avatarUrl
+    ? avatarUrl.includes("?")
+      ? avatarUrl
+      : `${avatarUrl}?t=${profile?.updated_at ?? ""}`
+    : null;
 
   return (
     <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
       <View style={styles.headerLeft}>
-        <Image source={require("../../assets/proptech logo colored.png")} style={styles.logoMark} resizeMode="contain" />
+        <Image
+          source={require("../../assets/proptech logo colored.png")}
+          style={styles.logoMark}
+          resizeMode="contain"
+        />
         <Text style={styles.logoName}>PropTech Club</Text>
       </View>
+
       <View style={styles.headerRight}>
         {isAuthenticated ? (
-          <TouchableOpacity onPress={() => router.push("/auth/profile" as any)} style={styles.avatarBtn}>
-            <Text style={styles.avatarTxt}>{profile?.full_name ? initials(profile.full_name) : "?"}</Text>
+          <TouchableOpacity
+            onPress={() => router.push("/auth/profile" as any)}
+            style={styles.avatarBtn}
+            activeOpacity={0.85}
+          >
+            {displayUri ? (
+              <Image
+                source={{ uri: displayUri }}
+                style={styles.avatarImg}
+              />
+            ) : (
+              <Text style={styles.avatarTxt}>
+                {displayName ? initials(displayName) : "?"}
+              </Text>
+            )}
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity onPress={() => router.push("/auth/sign-in" as any)} style={styles.signInBtn}>
+          <TouchableOpacity
+            onPress={() => router.push("/auth/sign-in" as any)}
+            style={styles.signInBtn}
+          >
             <Text style={styles.signInTxt}>Sign In</Text>
           </TouchableOpacity>
         )}
@@ -44,12 +75,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: "rgba(49,47,184,0.08)",
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
-  logoMark: { width: 48, height: 48 },
-  logoName: { fontSize: 20, fontFamily: "BebasNeue", color: "#1B196A", letterSpacing: 0.3 },
+  headerLeft:  { flexDirection: "row", alignItems: "center", gap: 6 },
+  logoMark:    { width: 48, height: 48 },
+  logoName:    { fontSize: 20, fontFamily: "BebasNeue", color: "#1B196A", letterSpacing: 0.3 },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
-  avatarBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: "#312FB8", alignItems: "center", justifyContent: "center" },
-  avatarTxt: { color: "#fff", fontSize: 12, fontFamily: "Outfit_600SemiBold", letterSpacing: 0 },
-  signInBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, backgroundColor: "#EEEDFE", borderWidth: 1, borderColor: "rgba(49,47,184,0.2)" },
-  signInTxt: { fontSize: 13, fontFamily: "Outfit_300Light", letterSpacing: 0, color: "#312FB8" },
+  avatarBtn:   { width: 34, height: 34, borderRadius: 10, backgroundColor: "#312FB8", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  avatarImg:   { width: 34, height: 34, borderRadius: 10 },
+  avatarTxt:   { color: "#fff", fontSize: 12, fontWeight: "700" },
+  signInBtn:   { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, backgroundColor: "#EEEDFE", borderWidth: 1, borderColor: "rgba(49,47,184,0.2)" },
+  signInTxt:   { fontSize: 13, fontWeight: "600", color: "#312FB8" },
 });

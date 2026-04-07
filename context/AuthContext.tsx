@@ -34,6 +34,7 @@ export interface Profile {
   avatar_url: string | null;
   is_verified: boolean;
   created_at: string;
+  updated_at?: string | null;
 }
 
 export interface Membership {
@@ -416,21 +417,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const updated = Array.isArray(result) ? result[0] : result;
-      console.log("[AuthContext] updateProfile patch response:", updated);
 
-      // Verify by reading latest profile from Supabase immediately after patch.
-      const latest = await fetchProfile(currentUser.id, atRef.current);
-      if (latest) {
-        setProfile(latest);
-        console.log("[AuthContext] updateProfile verified with fresh DB read:", latest);
-      } else {
-        // Fallback to patch response if fresh read fails.
-        setProfile({
-          ...updated,
-          role: normalizeUserRole(updated.role),
-        });
-        console.warn("[AuthContext] updateProfile patched but fresh DB read failed; using patch response.");
-      }
+      // Use PATCH response directly — no extra fetchProfile which causes
+      // unnecessary re-renders and avatar flicker
+      setProfile(prev => ({
+        ...(prev ?? {}),
+        ...updated,
+        role: normalizeUserRole(updated.role ?? prev?.role),
+      } as Profile));
 
       return {};
     } catch (e) {

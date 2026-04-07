@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -515,7 +515,21 @@ export default function ProfileScreen() {
 
   const isCompletingSignup = mode === "complete-signup" || (!isLoading && !!user && !profile);
 
-  const [avatarUri, setAvatarUri] = useState(profile?.avatar_url ?? "");
+  const [avatarUri, setAvatarUri] = useState<string>(profile?.avatar_url ?? "");
+  const [uploading, setUploading] = useState(false);
+
+  // Only set avatarUri from profile if it is currently empty
+  // This handles initial load without overwriting a freshly uploaded image
+  const avatarUriRef = React.useRef(avatarUri);
+  avatarUriRef.current = avatarUri;
+
+  useEffect(() => {
+    if (!avatarUriRef.current && profile?.avatar_url) {
+      setAvatarUri(profile.avatar_url);
+    }
+  }, [profile?.avatar_url]);
+
+
   const [personalDraft, setPersonalDraft] = useState({
     fullName: profile?.full_name ?? "",
     whatsapp: profile?.whatsapp ?? "",
@@ -705,74 +719,104 @@ export default function ProfileScreen() {
 
   const handleCameraOption = async (mode: "camera" | "gallery") => {
     setCameraSheetOpen(false);
-
     try {
-      let localUri: string | null = null;
+      let base64Data: string | undefined;
+      let mimeType = "image/jpeg";
+      let previewUri = "";
 
       if (mode === "camera") {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
         if (!perm.granted) {
-          Alert.alert("Permission Needed", "Please allow camera access to take a profile picture.");
+          Alert.alert("Permission Needed", "Please allow camera access.");
           return;
         }
         const result = await ImagePicker.launchCameraAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,
           aspect: [1, 1],
-          quality: 0.8,
+          quality: 0.6,
+          base64: true,
         });
-        if (result.canceled || !result.assets?.[0]?.uri) return;
-        localUri = result.assets[0].uri;
+        if (result.canceled || !result.assets?.[0]) return;
+        base64Data = result.assets[0].base64 ?? undefined;
+        mimeType   = result.assets[0].mimeType ?? "image/jpeg";
+        previewUri = result.assets[0].uri;
       } else {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!perm.granted) {
-          Alert.alert("Permission Needed", "Please allow gallery access to choose a profile picture.");
+          Alert.alert("Permission Needed", "Please allow gallery access.");
           return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,
           aspect: [1, 1],
-          quality: 0.8,
+          quality: 0.6,
+          base64: true,
         });
-        if (result.canceled || !result.assets?.[0]?.uri) return;
-        localUri = result.assets[0].uri;
+        if (result.canceled || !result.assets?.[0]) return;
+        base64Data = result.assets[0].base64 ?? undefined;
+        mimeType   = result.assets[0].mimeType ?? "image/jpeg";
+        previewUri = result.assets[0].uri;
       }
 
-      if (!localUri || !user) return;
+      if (!base64Data || !user) return;
 
-      setAvatarUri(localUri);
+      // Show uploading state while upload is in progress
+      setUploading(true);
 
       const token = getAccessToken();
       if (!token) {
-        Alert.alert("Error", "Not authenticated. Please sign in again.");
+        Alert.alert("Error", "Session expired. Please sign in again.");
+        setAvatarUri(profile?.avatar_url ?? "");
         return;
       }
 
-      const publicUrl = await uploadAvatar(localUri, user.id, token);
+      const publicUrl = await uploadAvatar(base64Data, user.id, token, mimeType);
 
       if (!publicUrl) {
-        Alert.alert("Upload Failed", "Could not upload your picture. Please try again.");
-        setAvatarUri(profile?.avatar_url ?? "");
+        setUploading(false);
+        Alert.alert("Upload Failed", "Could not upload picture. Please try again.");
         return;
       }
 
+      // Save to DB
       const updateResult = await updateProfile({ avatar_url: publicUrl });
       if (updateResult.error) {
-        Alert.alert("Update Failed", updateResult.error);
-        setAvatarUri(profile?.avatar_url ?? "");
+        setUploading(false);
+        Alert.alert("Save Failed", updateResult.error);
         return;
       }
 
+      // Upload complete — show the final image
+      setUploading(false);
       setAvatarUri(publicUrl);
-    } catch {
-      Alert.alert("Error", "Unable to open camera/gallery right now. Please try again.");
+    } catch (e) {
+      setUploading(false);
+      console.warn("[camera] error:", e);
+      Alert.alert("Error", "Unable to open camera/gallery. Please try again.");
     }
   };
 
   const renderAvatar = () => {
+    if (uploading) {
+      return (
+        <View style={[s.avatarImage, { alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.3)", borderRadius: 24 }]}>
+          <ActivityIndicator color="#fff" size="small" />
+        </View>
+      );
+    }
     if (avatarUri) {
-      return <Image source={{ uri: avatarUri }} style={s.avatarImage} />;
+      const displayUri = avatarUri.includes("?")
+        ? avatarUri
+        : `${avatarUri}?t=${profile?.updated_at ?? Date.now()}`;
+      return (
+        <Image
+          source={{ uri: displayUri }}
+          style={s.avatarImage}
+          onError={() => setAvatarUri("")}
+        />
+      );
     }
     return <Text style={s.avatarTxt}>{initials(displayName)}</Text>;
   };
@@ -812,7 +856,7 @@ export default function ProfileScreen() {
 
           <View style={s.avatarWrap}>
             <View style={[s.avatar, { backgroundColor: avatarBg }]}>
-              <Text style={s.avatarTxt}>{initials(displayName)}</Text>
+              {renderAvatar()}
             </View>
             <TouchableOpacity style={s.cameraBtn} activeOpacity={0.85} onPress={openAvatarOptions}>
               <Camera size={14} color="#312FB8" strokeWidth={2.2} />
@@ -1598,4 +1642,3 @@ const ms = StyleSheet.create({
   eyeBtn: { position: "absolute", right: 14, top: 16 },
   textarea: { height: 100, paddingTop: 14, paddingBottom: 14 },
 });
-

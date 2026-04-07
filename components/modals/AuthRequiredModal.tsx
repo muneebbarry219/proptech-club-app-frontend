@@ -10,11 +10,15 @@ interface AuthRequiredModalProps {
 
 export default function AuthRequiredModal({ visible, onClose }: AuthRequiredModalProps) {
   const router = useRouter();
+  const handleContinue = () => {
+    onClose();
+    router.push("/auth/sign-in" as any);
+  };
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <Pressable style={styles.modalCard} onPress={() => { }}>
+        <Pressable style={styles.modalCard} onPress={() => undefined}>
           <View style={styles.modalBadge}>
             <Frown size={22} color="#312FB8" strokeWidth={2.1} />
           </View>
@@ -22,10 +26,7 @@ export default function AuthRequiredModal({ visible, onClose }: AuthRequiredModa
           <Text style={styles.modalText}>Create an account or sign in first to access this feature.</Text>
           <TouchableOpacity
             activeOpacity={0.88}
-            onPress={() => {
-              onClose();
-              router.push("/auth/sign-in" as any);
-            }}
+            onPress={handleContinue}
             style={styles.modalButtonWrap}
           >
             <LinearGradient
