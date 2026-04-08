@@ -96,20 +96,17 @@ export default function WriteArticleScreen() {
       allowsEditing: true,
       aspect: [16, 9],
       quality: 0.75,
-      base64: true,
     });
     if (!result.canceled && result.assets?.[0]) {
       const asset = result.assets[0];
-      setCoverUri(asset.uri);                          // local preview
-      setCoverBase64(asset.base64 ?? null);
-      setCoverMime(asset.mimeType ?? "image/jpeg");
+      setCoverUri(asset.uri);
 
-      // Upload immediately if we already have an article ID
-      if (id && asset.base64) {
+      // Upload immediately if editing existing article
+      if (id) {
         const token = getAccessToken();
         if (token) {
           setCoverLoading(true);
-          const uploaded = await uploadArticleCover(asset.base64, id, token, asset.mimeType ?? "image/jpeg");
+          const uploaded = await uploadArticleCover(asset.uri, id, token);
           setCoverLoading(false);
           if (uploaded) setCoverUri(uploaded);
         }
@@ -124,17 +121,16 @@ export default function WriteArticleScreen() {
     setSaving(true);
 
     try {
-      // Upload cover if we have base64 and no permanent URL yet
+      // Upload cover if not yet uploaded (local URI)
       let finalCoverUrl = coverUri;
-      if (coverBase64 && coverUri && !coverUri.startsWith("http")) {
+      if (coverUri && !coverUri.startsWith("http")) {
         const token = getAccessToken();
         if (token) {
           const articleId = id ?? `draft-${Date.now()}`;
-          const uploaded  = await uploadArticleCover(coverBase64, articleId, token, coverMime);
+          const uploaded  = await uploadArticleCover(coverUri, articleId, token);
           if (uploaded) {
             finalCoverUrl = uploaded;
             setCoverUri(uploaded);
-            setCoverBase64(null);
           }
         }
       }
@@ -409,7 +405,7 @@ const s = StyleSheet.create({
   fieldLabel:          { fontSize: 11, fontWeight: "700", color: "#999", letterSpacing: 0.5, marginBottom: 6, marginTop: 14 },
   fieldHint:           { fontSize: 11, color: "#BBB", marginBottom: 8, lineHeight: 16 },
   titleInput:          { fontSize: 22, fontWeight: "800", color: "#1A1A2E", lineHeight: 30, borderBottomWidth: 1.5, borderBottomColor: "rgba(49,47,184,0.1)", paddingBottom: 10, marginBottom: 4 },
-  excerptInput:        { fontSize: 14, color: "#444", lineHeight: 22, borderWidth: 1.5, borderColor: "rgba(49,47,184,0.12)", borderRadius: 12, padding: 12, minHeight: 80, fontFamily: "Outfit_400Regular" },
+  excerptInput:        { fontSize: 14, color: "#444", lineHeight: 22, borderWidth: 1.5, borderColor: "rgba(49,47,184,0.12)", borderRadius: 12, padding: 12, minHeight: 80 },
   tagsInput:           { fontSize: 14, color: "#444", borderWidth: 1.5, borderColor: "rgba(49,47,184,0.12)", borderRadius: 12, padding: 12, height: 48 },
   bodyInput:           { fontSize: 15, color: "#333", lineHeight: 24, borderWidth: 1.5, borderColor: "rgba(49,47,184,0.12)", borderRadius: 12, padding: 14, minHeight: 300 },
   actions:             { flexDirection: "row", gap: 10, marginTop: 24 },
@@ -423,7 +419,7 @@ const s = StyleSheet.create({
   previewCover:        { width: "100%", height: 220 },
   previewContent:      { padding: 20 },
   previewTitle:        { fontSize: 24, fontWeight: "900", color: "#1A1A2E", lineHeight: 32, marginBottom: 16 },
-  previewExcerpt:      { fontSize: 16, fontFamily: "Outfit_600SemiBold", color: "#444", lineHeight: 26, marginBottom: 20, fontStyle: "italic" },
+  previewExcerpt:      { fontSize: 16, fontWeight: "600", color: "#444", lineHeight: 26, marginBottom: 20, fontStyle: "italic" },
   divider:             { height: 0.5, backgroundColor: "rgba(49,47,184,0.08)", marginBottom: 20 },
   heading1:            { fontSize: 22, fontWeight: "800", color: "#1A1A2E", marginTop: 24, marginBottom: 12 },
   heading:             { fontSize: 18, fontWeight: "800", color: "#1A1A2E", marginTop: 20, marginBottom: 10 },

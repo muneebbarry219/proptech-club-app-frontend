@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -515,21 +515,15 @@ export default function ProfileScreen() {
 
   const isCompletingSignup = mode === "complete-signup" || (!isLoading && !!user && !profile);
 
-  const [avatarUri, setAvatarUri] = useState<string>(profile?.avatar_url ?? "");
-  const [uploading, setUploading] = useState(false);
+  const [avatarUri,  setAvatarUri]  = useState(profile?.avatar_url ?? "");
+  const [uploading,  setUploading]  = useState(false);
 
-  // Only set avatarUri from profile if it is currently empty
-  // This handles initial load without overwriting a freshly uploaded image
-  const avatarUriRef = React.useRef(avatarUri);
-  avatarUriRef.current = avatarUri;
-
+  // Sync avatarUri from DB only when currently empty (app restart / fresh load)
   useEffect(() => {
-    if (!avatarUriRef.current && profile?.avatar_url) {
+    if (!avatarUri && profile?.avatar_url) {
       setAvatarUri(profile.avatar_url);
     }
   }, [profile?.avatar_url]);
-
-
   const [personalDraft, setPersonalDraft] = useState({
     fullName: profile?.full_name ?? "",
     whatsapp: profile?.whatsapp ?? "",
@@ -720,9 +714,7 @@ export default function ProfileScreen() {
   const handleCameraOption = async (mode: "camera" | "gallery") => {
     setCameraSheetOpen(false);
     try {
-      let base64Data: string | undefined;
-      let mimeType = "image/jpeg";
-      let previewUri = "";
+      let localUri = "";
 
       if (mode === "camera") {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -732,15 +724,10 @@ export default function ProfileScreen() {
         }
         const result = await ImagePicker.launchCameraAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.6,
-          base64: true,
+          allowsEditing: true, aspect: [1, 1], quality: 0.7,
         });
-        if (result.canceled || !result.assets?.[0]) return;
-        base64Data = result.assets[0].base64 ?? undefined;
-        mimeType   = result.assets[0].mimeType ?? "image/jpeg";
-        previewUri = result.assets[0].uri;
+        if (result.canceled || !result.assets?.[0]?.uri) return;
+        localUri = result.assets[0].uri;
       } else {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!perm.granted) {
@@ -749,30 +736,24 @@ export default function ProfileScreen() {
         }
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.6,
-          base64: true,
+          allowsEditing: true, aspect: [1, 1], quality: 0.7,
         });
-        if (result.canceled || !result.assets?.[0]) return;
-        base64Data = result.assets[0].base64 ?? undefined;
-        mimeType   = result.assets[0].mimeType ?? "image/jpeg";
-        previewUri = result.assets[0].uri;
+        if (result.canceled || !result.assets?.[0]?.uri) return;
+        localUri = result.assets[0].uri;
       }
 
-      if (!base64Data || !user) return;
+      if (!localUri || !user) return;
 
-      // Show uploading state while upload is in progress
       setUploading(true);
 
       const token = getAccessToken();
       if (!token) {
+        setUploading(false);
         Alert.alert("Error", "Session expired. Please sign in again.");
-        setAvatarUri(profile?.avatar_url ?? "");
         return;
       }
 
-      const publicUrl = await uploadAvatar(base64Data, user.id, token, mimeType);
+      const publicUrl = await uploadAvatar(localUri, user.id, token);
 
       if (!publicUrl) {
         setUploading(false);
@@ -780,20 +761,19 @@ export default function ProfileScreen() {
         return;
       }
 
-      // Save to DB
       const updateResult = await updateProfile({ avatar_url: publicUrl });
+      setUploading(false);
+
       if (updateResult.error) {
-        setUploading(false);
         Alert.alert("Save Failed", updateResult.error);
         return;
       }
 
-      // Upload complete — show the final image
-      setUploading(false);
+      // Set the permanent URL — persists via DB on next load
       setAvatarUri(publicUrl);
     } catch (e) {
       setUploading(false);
-      console.warn("[camera] error:", e);
+      console.warn("[camera]", e);
       Alert.alert("Error", "Unable to open camera/gallery. Please try again.");
     }
   };
@@ -801,18 +781,19 @@ export default function ProfileScreen() {
   const renderAvatar = () => {
     if (uploading) {
       return (
-        <View style={[s.avatarImage, { alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.3)", borderRadius: 24 }]}>
+        <View style={[s.avatarImage, { alignItems: "center", justifyContent: "center",
+          backgroundColor: "rgba(0,0,0,0.35)", borderRadius: 24 }]}>
           <ActivityIndicator color="#fff" size="small" />
         </View>
       );
     }
     if (avatarUri) {
-      const displayUri = avatarUri.includes("?")
-        ? avatarUri
-        : `${avatarUri}?t=${profile?.updated_at ?? Date.now()}`;
+      const uri = avatarUri.startsWith("http") && !avatarUri.includes("?")
+        ? `${avatarUri}?t=${profile?.updated_at ?? "1"}`
+        : avatarUri;
       return (
         <Image
-          source={{ uri: displayUri }}
+          source={{ uri }}
           style={s.avatarImage}
           onError={() => setAvatarUri("")}
         />
@@ -1642,3 +1623,4 @@ const ms = StyleSheet.create({
   eyeBtn: { position: "absolute", right: 14, top: 16 },
   textarea: { height: 100, paddingTop: 14, paddingBottom: 14 },
 });
+
