@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, ActivityIndicator, KeyboardAvoidingView,
-  Platform, Alert, Keyboard,
+  Platform, Alert, Keyboard, Image,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,6 +10,7 @@ import { ArrowLeft, Send } from "lucide-react-native";
 import { useAuth } from "../../context/AuthContext";
 import AppShell from "../../components/layout/AppShell";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../../constants/supabase";
+import { getAvatarUri } from "../../utils/getAvatarUri";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -27,6 +28,8 @@ interface PartnerProfile {
   full_name: string;
   role: string;
   company: string | null;
+  avatar_url: string | null;
+  updated_at?: string | null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -121,7 +124,7 @@ export default function ChatScreen() {
   const { id, partnerId: legacyPartnerId } = useLocalSearchParams<{ id?: string; partnerId?: string }>();
   const router        = useRouter();
   const insets        = useSafeAreaInsets();
-  const { user, apiFetch } = useAuth();
+  const { user, apiFetch, messageSyncTick, profileSyncTick } = useAuth();
   const partnerId = id ?? legacyPartnerId ?? "";
 
   const [partner,   setPartner]   = useState<PartnerProfile | null>(null);
@@ -132,7 +135,7 @@ export default function ChatScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const flatListRef = useRef<FlatList>(null);
-  const channelRef  = useRef<any>(null);
+  const channelRef = useRef<any>(null);
 
   // ── Load partner profile ───────────────────────────────────────
 
@@ -140,7 +143,7 @@ export default function ChatScreen() {
     if (!partnerId) return;
     (async () => {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/profiles?id=eq.${partnerId}&select=id,full_name,role,company`,
+        `${SUPABASE_URL}/rest/v1/profiles?id=eq.${partnerId}&select=id,full_name,role,company,avatar_url,updated_at`,
         { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
       );
       if (res.ok) {
@@ -148,7 +151,7 @@ export default function ChatScreen() {
         if (rows[0]) setPartner(rows[0]);
       }
     })();
-  }, [partnerId]);
+  }, [partnerId, profileSyncTick]);
 
   // ── Load messages ──────────────────────────────────────────────
 
@@ -170,7 +173,7 @@ export default function ChatScreen() {
     }
   }, [user, partnerId]);
 
-  useEffect(() => { loadMessages(); }, [loadMessages]);
+  useEffect(() => { loadMessages(); }, [loadMessages, messageSyncTick]);
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -362,6 +365,7 @@ export default function ChatScreen() {
   }
 
   const avatarColor = ROLE_COLORS[partner?.role ?? "real_estate_developer"] ?? "#312FB8";
+  const partnerAvatarUri = getAvatarUri(partner?.avatar_url, partner?.updated_at);
 
   return (
     <AppShell>
@@ -379,9 +383,13 @@ export default function ChatScreen() {
           </TouchableOpacity>
 
           <View style={[s.headerAvatar, { backgroundColor: avatarColor }]}>
-            <Text style={s.headerAvatarTxt}>
-              {partner ? initials(partner.full_name) : "??"}
-            </Text>
+            {partnerAvatarUri ? (
+              <Image source={{ uri: partnerAvatarUri }} style={s.headerAvatarImg} />
+            ) : (
+              <Text style={s.headerAvatarTxt}>
+                {partner ? initials(partner.full_name) : "??"}
+              </Text>
+            )}
           </View>
 
           <View style={s.headerInfo}>
@@ -402,9 +410,13 @@ export default function ChatScreen() {
         {messages.length === 0 ? (
           <View style={s.emptyChat}>
             <View style={[s.emptyChatAvatar, { backgroundColor: avatarColor }]}>
-              <Text style={s.emptyChatAvatarTxt}>
-                {partner ? initials(partner.full_name) : "??"}
-              </Text>
+              {partnerAvatarUri ? (
+                <Image source={{ uri: partnerAvatarUri }} style={s.emptyChatAvatarImg} />
+              ) : (
+                <Text style={s.emptyChatAvatarTxt}>
+                  {partner ? initials(partner.full_name) : "??"}
+                </Text>
+              )}
             </View>
             <Text style={s.emptyChatName}>{partner?.full_name}</Text>
             <Text style={s.emptyChatSub}>
@@ -468,7 +480,8 @@ const s = StyleSheet.create({
   container:          { flex: 1, backgroundColor: "#f8f8fc" },
   header:             { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#fff", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: "rgba(49,47,184,0.08)" },
   backBtn:            { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(49,47,184,0.08)", alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  headerAvatar:       { width: 38, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  headerAvatar:       { width: 38, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" },
+  headerAvatarImg:    { width: "100%", height: "100%" },
   headerAvatarTxt:    { color: "#fff", fontSize: 13, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
   headerInfo:         { flex: 1, minWidth: 0 },
   headerName:         { fontSize: 15, fontFamily: "Outfit_700Bold", letterSpacing: 0, color: "#1a1a2e" },
@@ -487,7 +500,8 @@ const s = StyleSheet.create({
   bubbleTxtTheirs:    { color: "#1a1a2e" },
   bubbleTime:         { fontSize: 10, color: "#bbb", paddingHorizontal: 4, marginTop: 3, marginBottom: 6, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
   emptyChat:          { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 12 },
-  emptyChatAvatar:    { width: 72, height: 72, borderRadius: 22, alignItems: "center", justifyContent: "center", marginBottom: 4 },
+  emptyChatAvatar:    { width: 72, height: 72, borderRadius: 22, alignItems: "center", justifyContent: "center", marginBottom: 4, overflow: "hidden" },
+  emptyChatAvatarImg: { width: "100%", height: "100%" },
   emptyChatAvatarTxt: { color: "#fff", fontSize: 26, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
   emptyChatName:      { fontSize: 18, fontFamily: "Outfit_700Bold", letterSpacing: 0, color: "#1a1a2e" },
   emptyChatSub:       { fontSize: 13, color: "#aaa", textAlign: "center", lineHeight: 20, fontFamily: "Outfit_400Regular", letterSpacing: 0 },

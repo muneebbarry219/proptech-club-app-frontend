@@ -11,8 +11,67 @@ import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../../context/AuthContext";
 import { uploadArticleCover } from "../../utils/uploadAvatar";
+import { getArticleCoverUrl } from "../../utils/getArticleCoverUrl";
 
 const ADMIN_USER_ID = "59a93ce0-0570-4f71-897a-162b72decf7e";
+
+type BodySelection = { start: number; end: number };
+
+function parseInlineMarkdown(text: string) {
+  const parts: { text: string; bold?: boolean; italic?: boolean }[] = [];
+  const pattern = /(\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  let lastIndex = 0;
+
+  text.replace(pattern, (match, _capture, offset) => {
+    if (offset > lastIndex) {
+      parts.push({ text: text.slice(lastIndex, offset) });
+    }
+
+    if (match.startsWith("**") && match.endsWith("**")) {
+      parts.push({ text: match.slice(2, -2), bold: true });
+    } else if (match.startsWith("*") && match.endsWith("*")) {
+      parts.push({ text: match.slice(1, -1), italic: true });
+    }
+
+    lastIndex = offset + match.length;
+    return match;
+  });
+
+  if (lastIndex < text.length) {
+    parts.push({ text: text.slice(lastIndex) });
+  }
+
+  return parts.length ? parts : [{ text }];
+}
+
+function renderInlineMarkdown(
+  text: string,
+  keyPrefix: string,
+  styles: { bold: object; italic: object }
+) {
+  return parseInlineMarkdown(text).map((part, index) => (
+    <Text
+      key={`${keyPrefix}-${index}`}
+      style={[part.bold ? styles.bold : null, part.italic ? styles.italic : null]}
+    >
+      {part.text}
+    </Text>
+  ));
+}
+
+function findBlockRange(text: string, selection: BodySelection) {
+  const start = text.lastIndexOf("\n\n", Math.max(0, selection.start - 1));
+  const end = text.indexOf("\n\n", selection.end);
+
+  return {
+    start: start === -1 ? 0 : start + 2,
+    end: end === -1 ? text.length : end,
+  };
+}
+
+function stripBlockPrefix(block: string) {
+  return block.replace(/^(#{1,3})\s+/, "");
+}
 
 export default function WriteArticleScreen() {
   const params = useLocalSearchParams<{
@@ -44,6 +103,7 @@ export default function WriteArticleScreen() {
   const [preview,     setPreview]     = useState(false);
   const [saving,      setSaving]      = useState(false);
   const [loading,     setLoading]     = useState(isEditing);
+  const [bodySelection, setBodySelection] = useState<BodySelection>({ start: 0, end: 0 });
 
   // Guard — non-admins should never reach this screen
   useEffect(() => {
@@ -66,7 +126,7 @@ export default function WriteArticleScreen() {
             setExcerpt(a.excerpt ?? "");
             setBody(a.body ?? "");
             setTags((a.tags ?? []).join(", "));
-            setCoverUri(a.cover_url ?? null);
+            setCoverUri(getArticleCoverUrl(a.cover_url) ?? null);
             setIsPublished(a.is_published ?? false);
             setLoading(false);
             return;
@@ -77,7 +137,7 @@ export default function WriteArticleScreen() {
         setExcerpt(params.excerpt ?? "");
         setBody(params.body ?? "");
         setTags(params.tags ?? "");
-        setCoverUri(params.cover_url ?? null);
+        setCoverUri(getArticleCoverUrl(params.cover_url) ?? null);
         setIsPublished(params.is_published === "true");
       } finally {
         setLoading(false);
@@ -108,7 +168,7 @@ export default function WriteArticleScreen() {
           setCoverLoading(true);
           const uploaded = await uploadArticleCover(asset.uri, id, token);
           setCoverLoading(false);
-          if (uploaded) setCoverUri(uploaded);
+          if (uploaded) setCoverUri(getArticleCoverUrl(uploaded));
         }
       }
     }
@@ -122,15 +182,15 @@ export default function WriteArticleScreen() {
 
     try {
       // Upload cover if not yet uploaded (local URI)
-      let finalCoverUrl = coverUri;
+      let finalCoverUrl = getArticleCoverUrl(coverUri);
       if (coverUri && !coverUri.startsWith("http")) {
         const token = getAccessToken();
         if (token) {
           const articleId = id ?? `draft-${Date.now()}`;
           const uploaded  = await uploadArticleCover(coverUri, articleId, token);
           if (uploaded) {
-            finalCoverUrl = uploaded;
-            setCoverUri(uploaded);
+            finalCoverUrl = getArticleCoverUrl(uploaded);
+            setCoverUri(getArticleCoverUrl(uploaded));
           }
         }
       }
@@ -219,6 +279,36 @@ export default function WriteArticleScreen() {
     ]);
   };
 
+  const applyBlockFormat = (format: "p" | "h1" | "h2" | "h3") => {
+    const range = findBlockRange(body, bodySelection);
+    const selectedBlock = body.slice(range.start, range.end);
+    const cleanBlock = stripBlockPrefix(selectedBlock);
+    const prefix = format === "p" ? "" : `${format === "h1" ? "#" : format === "h2" ? "##" : "###"} `;
+    const updatedBlock = `${prefix}${cleanBlock}`;
+    const nextBody = `${body.slice(0, range.start)}${updatedBlock}${body.slice(range.end)}`;
+
+    setBody(nextBody);
+    const nextCursor = range.start + updatedBlock.length;
+    setBodySelection({ start: nextCursor, end: nextCursor });
+  };
+
+  const toggleInlineFormat = (marker: "**" | "*") => {
+    const { start, end } = bodySelection;
+    if (start === end) return;
+
+    const selectedText = body.slice(start, end);
+    const wrappedWithMarker = selectedText.startsWith(marker) && selectedText.endsWith(marker);
+    const replacement = wrappedWithMarker
+      ? selectedText.slice(marker.length, selectedText.length - marker.length)
+      : `${marker}${selectedText}${marker}`;
+    const nextBody = `${body.slice(0, start)}${replacement}${body.slice(end)}`;
+
+    setBody(nextBody);
+    const nextStart = wrappedWithMarker ? start : start + marker.length;
+    const nextEnd = wrappedWithMarker ? start + replacement.length : start + marker.length + selectedText.length;
+    setBodySelection({ start: nextStart, end: nextEnd });
+  };
+
   if (loading) {
     return (
       <View style={[s.container, { paddingTop: insets.top, alignItems: "center", justifyContent: "center" }]}>
@@ -248,9 +338,32 @@ export default function WriteArticleScreen() {
             {excerpt ? <Text style={s.previewExcerpt}>{excerpt}</Text> : null}
             <View style={s.divider} />
             {paragraphs.map((p, i) => {
-              if (p.startsWith("## ")) return <Text key={i} style={s.heading}>{p.replace("## ", "")}</Text>;
-              if (p.startsWith("# "))  return <Text key={i} style={s.heading1}>{p.replace("# ", "")}</Text>;
-              return <Text key={i} style={s.para}>{p}</Text>;
+              if (p.startsWith("### ")) {
+                return (
+                  <Text key={i} style={s.heading3}>
+                    {renderInlineMarkdown(p.replace("### ", ""), `preview-h3-${i}`, { bold: s.inlineBold, italic: s.inlineItalic })}
+                  </Text>
+                );
+              }
+              if (p.startsWith("## ")) {
+                return (
+                  <Text key={i} style={s.heading}>
+                    {renderInlineMarkdown(p.replace("## ", ""), `preview-h2-${i}`, { bold: s.inlineBold, italic: s.inlineItalic })}
+                  </Text>
+                );
+              }
+              if (p.startsWith("# ")) {
+                return (
+                  <Text key={i} style={s.heading1}>
+                    {renderInlineMarkdown(p.replace("# ", ""), `preview-h1-${i}`, { bold: s.inlineBold, italic: s.inlineItalic })}
+                  </Text>
+                );
+              }
+              return (
+                <Text key={i} style={s.para}>
+                  {renderInlineMarkdown(p, `preview-p-${i}`, { bold: s.inlineBold, italic: s.inlineItalic })}
+                </Text>
+              );
             })}
           </View>
         </ScrollView>
@@ -333,16 +446,38 @@ export default function WriteArticleScreen() {
           {/* Body */}
           <Text style={s.fieldLabel}>BODY *</Text>
           <Text style={s.fieldHint}>
-            Use # for heading, ## for subheading. Separate paragraphs with a blank line.
+            Use the toolbar for H1, H2, H3, paragraph, bold, and italic. Separate paragraphs with a blank line.
           </Text>
+          <View style={s.formatBar}>
+            <TouchableOpacity style={s.formatChip} onPress={() => applyBlockFormat("h1")} activeOpacity={0.8}>
+              <Text style={s.formatChipTxt}>H1</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.formatChip} onPress={() => applyBlockFormat("h2")} activeOpacity={0.8}>
+              <Text style={s.formatChipTxt}>H2</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.formatChip} onPress={() => applyBlockFormat("h3")} activeOpacity={0.8}>
+              <Text style={s.formatChipTxt}>H3</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.formatChip} onPress={() => applyBlockFormat("p")} activeOpacity={0.8}>
+              <Text style={s.formatChipTxt}>P</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.formatChip} onPress={() => toggleInlineFormat("**")} activeOpacity={0.8}>
+              <Text style={[s.formatChipTxt, s.formatChipTxtBold]}>B</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.formatChip} onPress={() => toggleInlineFormat("*")} activeOpacity={0.8}>
+              <Text style={[s.formatChipTxt, s.formatChipTxtItalic]}>I</Text>
+            </TouchableOpacity>
+          </View>
           <TextInput
             style={s.bodyInput}
             value={body}
             onChangeText={setBody}
-            placeholder={`# Main heading\n\nYour first paragraph here...\n\n## Subheading\n\nAnother paragraph...`}
+            placeholder={`# Main heading\n\nYour first paragraph with **bold** or *italic* text.\n\n### Smaller heading\n\nAnother paragraph...`}
             placeholderTextColor="#CCC"
             multiline
             textAlignVertical="top"
+            selection={bodySelection}
+            onSelectionChange={(event) => setBodySelection(event.nativeEvent.selection)}
           />
 
           {/* Actions */}
@@ -404,6 +539,11 @@ const s = StyleSheet.create({
   coverPreview:        { width: "100%", height: 200 },
   fieldLabel:          { fontSize: 11, fontWeight: "700", color: "#999", letterSpacing: 0.5, marginBottom: 6, marginTop: 14 },
   fieldHint:           { fontSize: 11, color: "#BBB", marginBottom: 8, lineHeight: 16 },
+  formatBar:           { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 10 },
+  formatChip:          { paddingHorizontal: 12, height: 34, borderRadius: 17, backgroundColor: "#F3F2FF", borderWidth: 1, borderColor: "rgba(49,47,184,0.1)", alignItems: "center", justifyContent: "center" },
+  formatChipTxt:       { color: "#312FB8", fontSize: 12, fontWeight: "700" },
+  formatChipTxtBold:   { fontWeight: "900" },
+  formatChipTxtItalic: { fontStyle: "italic" },
   titleInput:          { fontSize: 22, fontWeight: "800", color: "#1A1A2E", lineHeight: 30, borderBottomWidth: 1.5, borderBottomColor: "rgba(49,47,184,0.1)", paddingBottom: 10, marginBottom: 4 },
   excerptInput:        { fontSize: 14, color: "#444", lineHeight: 22, borderWidth: 1.5, borderColor: "rgba(49,47,184,0.12)", borderRadius: 12, padding: 12, minHeight: 80 },
   tagsInput:           { fontSize: 14, color: "#444", borderWidth: 1.5, borderColor: "rgba(49,47,184,0.12)", borderRadius: 12, padding: 12, height: 48 },
@@ -423,5 +563,8 @@ const s = StyleSheet.create({
   divider:             { height: 0.5, backgroundColor: "rgba(49,47,184,0.08)", marginBottom: 20 },
   heading1:            { fontSize: 22, fontWeight: "800", color: "#1A1A2E", marginTop: 24, marginBottom: 12 },
   heading:             { fontSize: 18, fontWeight: "800", color: "#1A1A2E", marginTop: 20, marginBottom: 10 },
+  heading3:            { fontSize: 16, fontWeight: "800", color: "#1A1A2E", marginTop: 18, marginBottom: 8 },
   para:                { fontSize: 15, color: "#333", lineHeight: 26, marginBottom: 16 },
+  inlineBold:          { fontWeight: "800" },
+  inlineItalic:        { fontStyle: "italic" },
 });

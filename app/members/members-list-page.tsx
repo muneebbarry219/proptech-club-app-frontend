@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   RefreshControl,
   StyleSheet,
   Text,
@@ -11,11 +12,12 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Check, Clock3, MessageCircle, Search, UserPlus, Users, X } from "lucide-react-native";
+import { Check, ChevronDown, Clock3, MessageCircle, Search, UserPlus, Users, X } from "lucide-react-native";
 import AppShell from "../../components/layout/AppShell";
 import ConnectionActionModal from "../../components/modals/ConnectionActionModal";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../../constants/supabase";
 import { normalizeUserRole, useAuth, type UserRole } from "../../context/AuthContext";
+import { getAvatarUri } from "../../utils/getAvatarUri";
 
 type ConnectionStatus = "none" | "pending_sent" | "pending_received" | "connected";
 
@@ -26,6 +28,9 @@ interface MemberRowData {
   company: string | null;
   location: string;
   is_verified: boolean;
+  avatar_url: string | null;
+  updated_at?: string | null;
+  created_at: string;
 }
 
 interface Member extends MemberRowData {
@@ -50,6 +55,19 @@ const ROLE_COLORS: Record<UserRole, string> = {
   architect_designer: "#993556",
   academia: "#7C3AED",
 };
+
+type JoinedSort = "newest" | "oldest";
+type FilterMenu = "role" | "location" | null;
+
+const LOCATION_OPTIONS = [
+  { label: "All Locations", value: "all" },
+  { label: "Karachi", value: "karachi" },
+  { label: "Lahore", value: "lahore" },
+  { label: "Islamabad", value: "islamabad" },
+  { label: "UAE", value: "uae" },
+  { label: "KSA", value: "ksa" },
+  { label: "Other", value: "other" },
+] as const;
 
 function formatRoleLabel(role: UserRole) {
   const labels: Record<UserRole, string> = {
@@ -127,11 +145,16 @@ function MemberRow({
     formatRoleLabel(member.role),
     member.location.charAt(0).toUpperCase() + member.location.slice(1),
   ].join(" | ");
+  const avatarUri = getAvatarUri(member.avatar_url, member.updated_at);
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={[styles.row, isConnected && styles.rowConnected]}>
       <View style={[styles.avatar, { backgroundColor: color }]}>
-        <Text style={styles.avatarTxt}>{initials(member.full_name)}</Text>
+        {avatarUri ? (
+          <Image source={{ uri: avatarUri }} style={styles.avatarImg} />
+        ) : (
+          <Text style={styles.avatarTxt}>{initials(member.full_name)}</Text>
+        )}
         {isConnected ? (
           <View style={styles.connDot}>
             <Check size={8} color="#FFFFFF" strokeWidth={3} />
@@ -230,7 +253,7 @@ function EmptyState({ tab }: { tab: "all" | "connected" }) {
 
 export default function MembersScreen() {
   const router = useRouter();
-  const { user, apiFetch, isAuthenticated, isLoading } = useAuth();
+  const { user, apiFetch, isAuthenticated, isLoading, connectionSyncTick, profileSyncTick } = useAuth();
 
   const [tab, setTab] = useState<"all" | "connected">("all");
   const [members, setMembers] = useState<Member[]>([]);
@@ -238,6 +261,14 @@ export default function MembersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [cancelTarget, setCancelTarget] = useState<Member | null>(null);
+  const [roleFilter, setRoleFilter] = useState<"all" | UserRole>("all");
+  const [joinedSort, setJoinedSort] = useState<JoinedSort>("newest");
+  const [locationFilter, setLocationFilter] = useState<(typeof LOCATION_OPTIONS)[number]["value"]>("all");
+  const [openFilterMenu, setOpenFilterMenu] = useState<FilterMenu>(null);
+
+  const toggleFilterMenu = (menu: Exclude<FilterMenu, null>) => {
+    setOpenFilterMenu((current) => (current === menu ? null : menu));
+  };
 
   const load = useCallback(async () => {
     if (isLoading) return;
@@ -251,7 +282,7 @@ export default function MembersScreen() {
 
     try {
       const profilesRes = await publicFetch(
-        `/profiles?id=neq.${user.id}&select=id,full_name,role,company,location,is_verified&order=created_at.desc`
+        `/profiles?id=neq.${user.id}&select=id,full_name,role,company,location,is_verified,avatar_url,updated_at,created_at&order=created_at.desc`
       );
 
       if (!profilesRes.ok) return;
@@ -312,6 +343,12 @@ export default function MembersScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // ── Realtime: reload when connections change ───────────────────
+  useEffect(() => {
+    if (!user || !isAuthenticated || isLoading) return;
+    load();
+  }, [connectionSyncTick, isAuthenticated, isLoading, load, profileSyncTick, user]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -454,10 +491,20 @@ export default function MembersScreen() {
       member.full_name.toLowerCase().includes(q) ||
       (member.company?.toLowerCase().includes(q) ?? false) ||
       member.role.toLowerCase().includes(q);
-    return matchSearch;
+    const matchRole = tab !== "all" || roleFilter === "all" || member.role === roleFilter;
+    const matchLocation =
+      tab !== "all" ||
+      locationFilter === "all" ||
+      member.location.toLowerCase() === locationFilter;
+
+    return matchSearch && matchRole && matchLocation;
   });
 
-  const allMembers = filtered.filter((member) => member.connectionStatus !== "connected");
+  const allMembers = [...filtered].sort((a, b) => {
+    const aTime = new Date(a.created_at).getTime();
+    const bTime = new Date(b.created_at).getTime();
+    return joinedSort === "newest" ? bTime - aTime : aTime - bTime;
+  });
   const connectedMembers = members.filter((member) => member.connectionStatus === "connected");
   const connectedCount = connectedMembers.length;
 
@@ -472,6 +519,9 @@ export default function MembersScreen() {
   });
 
   const displayList = tab === "all" ? allMembers : connectedFiltered;
+  const selectedLocationLabel =
+    LOCATION_OPTIONS.find((option) => option.value === locationFilter)?.label ?? "All Locations";
+  const selectedRoleLabel = roleFilter === "all" ? "All Roles" : formatRoleLabel(roleFilter);
 
   return (
     <AppShell>
@@ -479,7 +529,10 @@ export default function MembersScreen() {
         <View style={styles.stickyHead}>
           <View style={styles.masterTabs}>
             <TouchableOpacity
-              onPress={() => setTab("all")}
+              onPress={() => {
+                setOpenFilterMenu(null);
+                setTab("all");
+              }}
               style={[styles.masterTab, tab === "all" && styles.masterTabOn]}
               activeOpacity={0.8}
             >
@@ -490,7 +543,10 @@ export default function MembersScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => setTab("connected")}
+              onPress={() => {
+                setOpenFilterMenu(null);
+                setTab("connected");
+              }}
               style={[styles.masterTab, tab === "connected" && styles.masterTabOn]}
               activeOpacity={0.8}
             >
@@ -507,6 +563,7 @@ export default function MembersScreen() {
               style={styles.searchInput}
               value={search}
               onChangeText={setSearch}
+              onFocus={() => setOpenFilterMenu(null)}
               placeholder="Search name, company, role..."
               placeholderTextColor="#BBB"
               returnKeyType="search"
@@ -519,6 +576,86 @@ export default function MembersScreen() {
             ) : null}
           </View>
 
+          {tab === "all" ? (
+            <View style={styles.filtersWrap}>
+              <View style={styles.filterControlsRow}>
+                <TouchableOpacity
+                  onPress={() => toggleFilterMenu("role")}
+                  style={styles.dropdownField}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.dropdownValueRow}>
+                    <Text style={styles.dropdownValue} numberOfLines={1}>{selectedRoleLabel}</Text>
+                    <ChevronDown size={16} color="#6B679B" strokeWidth={2.2} />
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => toggleFilterMenu("location")}
+                  style={styles.dropdownField}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.dropdownValueRow}>
+                    <Text style={styles.dropdownValue} numberOfLines={1}>{selectedLocationLabel}</Text>
+                    <ChevronDown size={16} color="#6B679B" strokeWidth={2.2} />
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setJoinedSort((prev) => (prev === "newest" ? "oldest" : "newest"))}
+                  style={styles.sortField}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.dropdownValue} numberOfLines={1}>
+                    {joinedSort === "newest" ? "Date Joined ↓" : "Date Joined ↑"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {openFilterMenu ? (
+                <View style={styles.inlineDropdown}>
+                  <Text style={styles.inlineDropdownTitle}>
+                    {openFilterMenu === "role" ? "Select Role" : "Select Location"}
+                  </Text>
+                  <View style={styles.filterBubbleWrap}>
+                    {(openFilterMenu === "role"
+                      ? [{ label: "All Roles", value: "all" }, ...(Object.keys(ROLE_COLORS) as UserRole[]).map((role) => ({
+                          label: formatRoleLabel(role),
+                          value: role,
+                        }))]
+                      : LOCATION_OPTIONS
+                    ).map((option) => {
+                      const isSelected =
+                        openFilterMenu === "role"
+                          ? roleFilter === option.value
+                          : locationFilter === option.value;
+
+                      return (
+                        <TouchableOpacity
+                          key={option.value}
+                          onPress={() => {
+                            if (openFilterMenu === "role") {
+                              setRoleFilter(option.value as "all" | UserRole);
+                            } else {
+                              setLocationFilter(option.value as (typeof LOCATION_OPTIONS)[number]["value"]);
+                            }
+                            setOpenFilterMenu(null);
+                          }}
+                          style={[styles.filterBubble, isSelected && styles.filterBubbleActive]}
+                          activeOpacity={0.85}
+                        >
+                          <Text style={[styles.filterBubbleTxt, isSelected && styles.filterBubbleTxtActive]}>
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
         </View>
 
         {loading ? (
@@ -526,34 +663,43 @@ export default function MembersScreen() {
             <ActivityIndicator color="#312FB8" size="large" />
           </View>
         ) : (
-          <FlatList
-            data={displayList}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => {
-                  setRefreshing(true);
-                  load();
-                }}
-                tintColor="#312FB8"
+          <View style={styles.listArea}>
+            {openFilterMenu ? (
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={() => setOpenFilterMenu(null)}
+                style={styles.dropdownDismissLayer}
               />
-            }
-            ListEmptyComponent={<EmptyState tab={tab} />}
-            renderItem={({ item }) => (
-              <MemberRow
-                member={item}
-                onPress={() => router.push(`/members/${item.id}` as any)}
-                onAdd={() => handleAdd(item)}
-                onAccept={() => handleAccept(item)}
-                onDecline={() => handleDeclineReceived(item)}
-                onCancel={() => handleCancelPending(item)}
-                onMessage={() => handleMessage(item)}
-              />
-            )}
-          />
+            ) : null}
+            <FlatList
+              data={displayList}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={() => {
+                    setRefreshing(true);
+                    load();
+                  }}
+                  tintColor="#312FB8"
+                />
+              }
+              ListEmptyComponent={<EmptyState tab={tab} />}
+              renderItem={({ item }) => (
+                <MemberRow
+                  member={item}
+                  onPress={() => router.push(`/members/${item.id}` as any)}
+                  onAdd={() => handleAdd(item)}
+                  onAccept={() => handleAccept(item)}
+                  onDecline={() => handleDeclineReceived(item)}
+                  onCancel={() => handleCancelPending(item)}
+                  onMessage={() => handleMessage(item)}
+                />
+              )}
+            />
+          </View>
         )}
       </View>
 
@@ -629,6 +775,102 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
+  filtersWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    gap: 10,
+    zIndex: 20,
+  },
+  filterControlsRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  dropdownField: {
+    flex: 1,
+    backgroundColor: "#F7F6FD",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(49,47,184,0.12)",
+    height: 32,
+    paddingHorizontal: 10,
+    justifyContent: "center",
+  },
+  sortField: {
+    flex: 1,
+    backgroundColor: "#F7F6FD",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(49,47,184,0.12)",
+    height: 32,
+    paddingHorizontal: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dropdownValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 6,
+  },
+  dropdownValue: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 14,
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
+    color: "#1A1A2E",
+    textAlignVertical: "center",
+  },
+  inlineDropdown: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 10,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: "rgba(49,47,184,0.10)",
+    shadowColor: "#18163F",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 5,
+  },
+  inlineDropdownTitle: {
+    fontSize: 12,
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
+    color: "#6B679B",
+    marginBottom: 2,
+  },
+  filterBubbleWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  filterBubble: {
+    minHeight: 30,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F7F6FD",
+    borderWidth: 1,
+    borderColor: "rgba(49,47,184,0.12)",
+  },
+  filterBubbleActive: {
+    backgroundColor: "#312FB8",
+    borderColor: "#312FB8",
+  },
+  filterBubbleTxt: {
+    fontSize: 12,
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
+    color: "#4D4A78",
+  },
+  filterBubbleTxtActive: {
+    color: "#FFFFFF",
+    fontFamily: "Outfit_600SemiBold",
+  },
   searchInput: {
     flex: 1,
     fontSize: 14,
@@ -641,6 +883,13 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  listArea: {
+    flex: 1,
+  },
+  dropdownDismissLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 5,
   },
   listContent: {
     padding: 16,
@@ -674,6 +923,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
     position: "relative",
+  },
+  avatarImg: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 14,
   },
   avatarTxt: {
     color: "#FFFFFF",

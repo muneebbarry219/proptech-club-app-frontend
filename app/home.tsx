@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Image } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, useWindowDimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Image as ExpoImage } from "expo-image";
@@ -8,8 +8,8 @@ import { useAuth } from "../context/AuthContext";
 import AppShell from "../components/layout/AppShell";
 import AuthRequiredModal from "../components/modals/AuthRequiredModal";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../constants/supabase";
+import { getArticleCoverUrl } from "../utils/getArticleCoverUrl";
 
-const { width } = Dimensions.get("window");
 const HERO_IMAGE = "https://images.unsplash.com/photo-1571917687771-094c2a557ed4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080";
 const ADMIN_USER_ID = "59a93ce0-0570-4f71-897a-162b72decf7e";
 
@@ -43,11 +43,23 @@ function greeting() {
 }
 
 export default function HomeScreen() {
+  const { width } = useWindowDimensions();
   const router = useRouter();
   const { profile, isAuthenticated, user } = useAuth();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [insights, setInsights] = useState<ArticleInsight[]>([]);
   const isAdmin = isAuthenticated && user?.id === ADMIN_USER_ID;
+
+  const contentWidth = Math.max(width - 32, 0);
+  const actionCardWidth = (contentWidth - 12) / 2;
+  const compactScreen = width < 390;
+  const heroHeight = width < 360 ? 172 : width < 420 ? 184 : 196;
+  const heroTitleSize = width < 360 ? 21 : width < 420 ? 23 : 25;
+  const heroTitleLineHeight = width < 360 ? 27 : width < 420 ? 29 : 32;
+  const heroSubtitleSize = width < 360 ? 13 : 14;
+  const heroSubtitleLineHeight = width < 360 ? 16 : 17;
+  const actionTitleFontSize = width < 360 ? 12 : width < 390 ? 13 : width < 420 ? 14 : 17;
+  const actionTitleLineHeight = width < 360 ? 16 : width < 390 ? 17 : width < 420 ? 18 : 21;
 
   useEffect(() => {
     let active = true;
@@ -88,7 +100,7 @@ export default function HomeScreen() {
             text: article.title,
             excerpt: article.excerpt ?? null,
             source: article.profiles?.full_name ?? "PropTech Club",
-            image: article.cover_url || HERO_IMAGE,
+            image: getArticleCoverUrl(article.cover_url) || HERO_IMAGE,
             body: article.body ?? article.excerpt ?? article.title,
             publishedAt: article.published_at,
             isDbArticle: true,
@@ -116,7 +128,7 @@ export default function HomeScreen() {
   return (
     <AppShell>
       <View style={s.screen}>
-        <View style={s.heroBanner}>
+        <View style={[s.heroBanner, { height: heroHeight }]}>
           <ExpoImage source={{ uri: HERO_IMAGE }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
           <LinearGradient
             colors={["rgba(27,25,106,0.88)", "rgba(49,47,184,0.78)", "rgba(120,60,200,0.72)"]}
@@ -128,14 +140,22 @@ export default function HomeScreen() {
             {isAuthenticated && profile ? (
               <>
                 <Text style={s.heroEyebrow}>{greeting()}</Text>
-                <Text style={s.heroTitle}>{profile.full_name}</Text>
-                <Text style={s.heroSubtitle}>Step into the region's most connected real estate, capital and technology network.</Text>
+                <Text style={[s.heroTitle, { fontSize: heroTitleSize, lineHeight: heroTitleLineHeight }]} numberOfLines={2}>
+                  {profile.full_name}
+                </Text>
+                <Text style={[s.heroSubtitle, { fontSize: heroSubtitleSize, lineHeight: heroSubtitleLineHeight }]}>
+                  Step into the region's most connected real estate, capital and technology network.
+                </Text>
               </>
             ) : (
               <>
                 <Text style={s.heroEyebrow}></Text>
-                <Text style={s.heroTitle}>Join The Network</Text>
-                <Text style={s.heroSubtitle}>Connect with 500+ real estate, capital and technology professionals.</Text>
+                <Text style={[s.heroTitle, { fontSize: heroTitleSize, lineHeight: heroTitleLineHeight }]} numberOfLines={2}>
+                  Join The Network
+                </Text>
+                <Text style={[s.heroSubtitle, { fontSize: heroSubtitleSize, lineHeight: heroSubtitleLineHeight }]}>
+                  Connect with 500+ real estate, capital and technology professionals.
+                </Text>
                 <TouchableOpacity onPress={() => router.push("/auth/sign-up" as any)} activeOpacity={0.85} style={s.heroCtaWrap}>
                   <LinearGradient colors={["#ffffff", "#E9E7FF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.heroCta}>
                     <Text style={s.heroCtaText}>Join Free</Text>
@@ -149,29 +169,39 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={s.actionGrid}>
-          {ACTION_CARDS.map((card) => (
-            <TouchableOpacity
-              key={card.title}
-              onPress={() => handleProtectedPress(card.route)}
-              activeOpacity={0.85}
-              style={s.actionCard}
-            >
-              <LinearGradient
-                colors={["#312FB8", "#1B196A"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFillObject}
-              />
-              <View style={s.actionCircleLg} />
-              <View style={s.actionCircleSm} />
-              <View style={s.actionIconWrap}>
-                <card.Icon size={18} color="#FFFFFF" strokeWidth={2} />
-              </View>
-              <Text style={s.actionTitle}>{card.title}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {false ? (
+          <View style={s.actionGrid}>
+            {ACTION_CARDS.map((card) => (
+              <TouchableOpacity
+                key={card.title}
+                onPress={() => handleProtectedPress(card.route)}
+                activeOpacity={0.85}
+                style={[s.actionCard, { width: actionCardWidth, height: compactScreen ? 98 : 106 }]}
+              >
+                <LinearGradient
+                  colors={["#312FB8", "#1B196A"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFillObject}
+                />
+                <View style={s.actionCircleLg} />
+                <View style={s.actionCircleSm} />
+                <View style={s.actionIconWrap}>
+                  <card.Icon size={18} color="#FFFFFF" strokeWidth={2} />
+                </View>
+                <Text
+                  style={[s.actionTitle, { fontSize: actionTitleFontSize, lineHeight: actionTitleLineHeight }]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.72}
+                >
+                  {card.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
 
         <View style={s.insightsSection}>
           <View style={s.insightsHeader}>
@@ -238,7 +268,7 @@ export default function HomeScreen() {
 
 const s = StyleSheet.create({
   screen: { flex: 1 },
-  heroBanner: { marginHorizontal: 16, marginTop: 16, borderRadius: 24, height: 196, overflow: "hidden" },
+  heroBanner: { marginHorizontal: 16, marginTop: 16, borderRadius: 24, overflow: "hidden" },
   heroContent: { flex: 1, justifyContent: "flex-end", padding: 20 },
   heroEyebrow: { color: "rgba(255,255,255,0.72)", fontSize: 11, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, marginBottom: 3 },
   heroTitle: { color: "#fff", fontSize: 25, fontFamily: "Outfit_700Bold", lineHeight: 32, letterSpacing: 0, paddingBottom: 20 },
@@ -262,12 +292,11 @@ const s = StyleSheet.create({
     marginTop: 16,
   },
   actionCard: {
-    width: (width - 44) / 2,
-    height: 92,
     borderRadius: 20,
     padding: 16,
     overflow: "hidden",
-    justifyContent: "flex-end",
+    justifyContent: "flex-start",
+    paddingTop: 58,
   },
   actionIconWrap: {
     position: "absolute",
@@ -302,11 +331,11 @@ const s = StyleSheet.create({
   },
   actionTitle: {
     color: "#fff",
-    fontSize: 17,
     fontFamily: "Outfit_600SemiBold",
     letterSpacing: 0,
-    paddingTop: 20,
     marginLeft: 3,
+    paddingRight: 8,
+    flexShrink: 1,
   },
   insightsSection: { flex: 1, marginTop: 28 },
   insightsHeader: {

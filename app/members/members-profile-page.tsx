@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Image,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -25,6 +26,7 @@ import { useAuth } from "../../context/AuthContext";
 import AppShell from "../../components/layout/AppShell";
 import ConnectionActionModal from "../../components/modals/ConnectionActionModal";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../../constants/supabase";
+import { getAvatarUri } from "../../utils/getAvatarUri";
 
 type ConnectionStatus = "none" | "pending_sent" | "pending_received" | "connected";
 
@@ -40,6 +42,8 @@ interface MemberProfile {
   whatsapp: string | null;
   is_verified: boolean;
   created_at: string;
+  avatar_url: string | null;
+  updated_at?: string | null;
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -102,7 +106,7 @@ function connectionDeletePath(currentUserId: string, memberId: string) {
 export default function MemberProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { user, apiFetch, isAuthenticated } = useAuth();
+  const { user, apiFetch, isAuthenticated, connectionSyncTick, profileSyncTick } = useAuth();
 
   const [member, setMember] = useState<MemberProfile | null>(null);
   const [connStatus, setConnStatus] = useState<ConnectionStatus>("none");
@@ -179,6 +183,13 @@ export default function MemberProfileScreen() {
       }
     })();
   }, [id, loadConnectionState, loadMember]);
+
+  useEffect(() => {
+    if (!user || !isAuthenticated || !id) return;
+
+    loadConnectionState();
+    loadMember();
+  }, [connectionSyncTick, id, isAuthenticated, loadConnectionState, loadMember, profileSyncTick, user]);
 
   const handleConnect = async () => {
     if (!isAuthenticated) {
@@ -383,6 +394,7 @@ export default function MemberProfileScreen() {
   }
 
   const avatarColor = ROLE_COLORS[member.role] ?? "#312FB8";
+  const avatarUri = getAvatarUri(member.avatar_url, member.updated_at);
 
   return (
     <AppShell>
@@ -395,7 +407,11 @@ export default function MemberProfileScreen() {
             <View style={s.hc1} />
             <View style={s.hc2} />
             <View style={[s.avatar, { backgroundColor: avatarColor }]}>
-              <Text style={s.avatarTxt}>{initials(member.full_name)}</Text>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={s.avatarImg} />
+              ) : (
+                <Text style={s.avatarTxt}>{initials(member.full_name)}</Text>
+              )}
               {connStatus === "connected" ? (
                 <View style={s.connBadge}>
                   <Check size={10} color="#FFFFFF" strokeWidth={3} />
@@ -609,6 +625,7 @@ const s = StyleSheet.create({
     marginBottom: 14,
     position: "relative",
   },
+  avatarImg: { width: "100%", height: "100%", borderRadius: 24 },
   avatarTxt: { color: "#FFFFFF", fontSize: 30, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
   connBadge: {
     position: "absolute",

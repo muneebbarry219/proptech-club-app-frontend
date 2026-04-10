@@ -16,6 +16,7 @@ import { useRouter } from "expo-router";
 import { Search, X, MessageSquareText, Plus, Check, Users } from "lucide-react-native";
 import { normalizeUserRole, useAuth } from "../../context/AuthContext";
 import AppShell from "../../components/layout/AppShell";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../../constants/supabase";
 import { getAvatarUri } from "../../utils/getAvatarUri";
 
 interface Conversation {
@@ -389,6 +390,57 @@ export default function MessagesScreen() {
     if (!isAuthenticated || !user) return;
     loadConnections();
   }, [connectionSyncTick, isAuthenticated, loadConnections, profileSyncTick, user]);
+
+  // ── Supabase Realtime — update conversation list on new messages ──
+  useEffect(() => {
+    if (!user || !isAuthenticated) return;
+
+    const wsUrl = `${SUPABASE_URL}/realtime/v1/websocket?apikey=${SUPABASE_ANON_KEY}&vsn=1.0.0`
+      .replace("https://", "wss://")
+      .replace("http://", "ws://");
+
+    const ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        topic: "realtime:direct_messages_list",
+        event: "phx_join",
+        payload: {
+          config: {
+            broadcast: { self: false },
+            presence:  { key: "" },
+            postgres_changes: [{
+              event:  "INSERT",
+              schema: "public",
+              table:  "direct_messages",
+            }],
+          },
+        },
+        ref: "1",
+      }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+        if (
+          parsed.event === "postgres_changes" &&
+          parsed.payload?.data?.type === "INSERT"
+        ) {
+          const msg = parsed.payload.data.record;
+          // Only reload if this message involves the current user
+          if (msg.sender_id === user.id || msg.receiver_id === user.id) {
+            load();
+          }
+        }
+      } catch {}
+    };
+
+    ws.onerror = () => {};
+    ws.onclose = () => {};
+
+    return () => { ws.close(); };
+  }, [user, isAuthenticated, load]);
 
   const openStartChat = async () => {
     setShowStartChatModal(true);

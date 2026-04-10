@@ -6,13 +6,23 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "proptechclub",
+    "icon": "./assets/logo.png",
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1B196A"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "pk.landtrack.proptech.club"
     },
     "android": {
       "package": "pk.landtrack.proptech.club",
-      "versionCode": 1
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#1B196A"
+      }
     },
     "web": {
       "bundler": "metro",

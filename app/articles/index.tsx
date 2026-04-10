@@ -8,6 +8,7 @@ import { PenLine } from "lucide-react-native";
 import { useAuth } from "../../context/AuthContext";
 import AppShell from "../../components/layout/AppShell";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../../constants/supabase";
+import { getArticleCoverUrl } from "../../utils/getArticleCoverUrl";
 
 // ── Admin check ────────────────────────────────────────────────
 const ADMIN_USER_ID = "59a93ce0-0570-4f71-897a-162b72decf7e";
@@ -35,10 +36,12 @@ function timeAgo(iso: string) {
 
 // ── Article Card ───────────────────────────────────────────────
 function ArticleCard({ article, onPress }: { article: Article; onPress: () => void }) {
+  const coverUrl = getArticleCoverUrl(article.cover_url);
+
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.88} style={s.card}>
-      {article.cover_url && (
-        <Image source={{ uri: article.cover_url }} style={s.cover} resizeMode="cover" />
+      {coverUrl && (
+        <Image source={{ uri: coverUrl }} style={s.cover} resizeMode="cover" />
       )}
       <View style={s.cardBody}>
         {article.tags?.length > 0 && (

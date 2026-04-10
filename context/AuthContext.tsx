@@ -4,6 +4,9 @@ import {
 } from "react";
 import { storage } from "../utils/storage";
 import { SUPABASE_URL, SUPABASE_ANON_KEY, AUTH_URL, DB_URL } from "../constants/supabase";
+import { subscribeToConnectionChanges } from "../utils/subscribeToConnectionChanges";
+import { subscribeToMessageChanges } from "../utils/subscribeToMessageChanges";
+import { subscribeToProfileChanges } from "../utils/subscribeToProfileChanges";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -55,6 +58,9 @@ interface AuthContextType {
   membership: Membership | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  connectionSyncTick: number;
+  messageSyncTick: number;
+  profileSyncTick: number;
   signUp: (email: string, password: string) => Promise<{ error?: string }>;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
@@ -207,6 +213,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile,    setProfile]    = useState<Profile | null>(null);
   const [membership, setMembership] = useState<Membership | null>(null);
   const [isLoading,  setIsLoading]  = useState(true);
+  const [connectionSyncTick, setConnectionSyncTick] = useState(0);
+  const [messageSyncTick, setMessageSyncTick] = useState(0);
+  const [profileSyncTick, setProfileSyncTick] = useState(0);
 
   const userRef = useRef<{ id: string; email: string } | null>(null);
   const atRef = useRef<string | null>(null); // access token ref for sync access
@@ -279,6 +288,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const bumpConnectionSync = () => {
+      setConnectionSyncTick((prev) => prev + 1);
+    };
+
+    const unsubscribe = subscribeToConnectionChanges(user.id, bumpConnectionSync);
+    const intervalId = setInterval(bumpConnectionSync, 4000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(intervalId);
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const handleProfileChange = async (profileId: string) => {
+      setProfileSyncTick((prev) => prev + 1);
+
+      if (profileId === user.id && atRef.current) {
+        const nextProfile = await fetchProfile(user.id, atRef.current);
+        if (nextProfile) {
+          setProfile(nextProfile);
+        }
+      }
+    };
+
+    const unsubscribe = subscribeToProfileChanges((profileId) => {
+      void handleProfileChange(profileId);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const bumpMessageSync = () => {
+      setMessageSyncTick((prev) => prev + 1);
+    };
+
+    const unsubscribe = subscribeToMessageChanges(user.id, bumpMessageSync);
+    const intervalId = setInterval(bumpMessageSync, 4000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(intervalId);
+    };
+  }, [user?.id]);
 
   // ── apiFetch — authenticated Supabase REST calls ─────────────
 
@@ -442,7 +506,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, profile, membership,
-      isLoading, isAuthenticated: !!user,
+      isLoading, isAuthenticated: !!user, connectionSyncTick, messageSyncTick, profileSyncTick,
       signUp, signIn, signOut,
       createProfile, updateProfile, refreshProfile,
       apiFetch,

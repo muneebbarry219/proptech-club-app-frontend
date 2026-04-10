@@ -108,7 +108,6 @@ export default function SplashScreen() {
       prog.stop();
     };
   }, [
-    isLoading,
     particles,
     progressW,
     logoOpacity,

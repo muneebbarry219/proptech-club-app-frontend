@@ -8,6 +8,8 @@ import { ArrowLeft, Pencil, Trash2 } from "lucide-react-native";
 import { useAuth } from "../../context/AuthContext";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../../constants/supabase";
 import AppShell from "../../components/layout/AppShell";
+import { getArticleCoverUrl } from "../../utils/getArticleCoverUrl";
+import { getAvatarUri } from "../../utils/getAvatarUri";
 
 const ADMIN_USER_ID = "59a93ce0-0570-4f71-897a-162b72decf7e";
 
@@ -20,7 +22,49 @@ interface Article {
   tags: string[];
   published_at: string;
   author_id: string;
-  profiles: { full_name: string; role: string | null } | null;
+  profiles: { full_name: string; role: string | null; avatar_url?: string | null; updated_at?: string | null } | null;
+}
+
+function parseInlineMarkdown(text: string) {
+  const parts: { text: string; bold?: boolean; italic?: boolean }[] = [];
+  const pattern = /(\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  let lastIndex = 0;
+
+  text.replace(pattern, (match, _capture, offset) => {
+    if (offset > lastIndex) {
+      parts.push({ text: text.slice(lastIndex, offset) });
+    }
+
+    if (match.startsWith("**") && match.endsWith("**")) {
+      parts.push({ text: match.slice(2, -2), bold: true });
+    } else if (match.startsWith("*") && match.endsWith("*")) {
+      parts.push({ text: match.slice(1, -1), italic: true });
+    }
+
+    lastIndex = offset + match.length;
+    return match;
+  });
+
+  if (lastIndex < text.length) {
+    parts.push({ text: text.slice(lastIndex) });
+  }
+
+  return parts.length ? parts : [{ text }];
+}
+
+function renderInlineMarkdown(
+  text: string,
+  keyPrefix: string,
+  styles: { bold: object; italic: object }
+) {
+  return parseInlineMarkdown(text).map((part, index) => (
+    <Text
+      key={`${keyPrefix}-${index}`}
+      style={[part.bold ? styles.bold : null, part.italic ? styles.italic : null]}
+    >
+      {part.text}
+    </Text>
+  ));
 }
 
 function formatDate(iso: string) {
@@ -60,7 +104,7 @@ export default function ArticleDetailScreen() {
 
       try {
         const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/articles?id=eq.${id}&select=id,title,excerpt,body,cover_url,tags,published_at,author_id,profiles!author_id(full_name,role)`,
+          `${SUPABASE_URL}/rest/v1/articles?id=eq.${id}&select=id,title,excerpt,body,cover_url,tags,published_at,author_id,profiles!author_id(full_name,role,avatar_url,updated_at)`,
           { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
         );
         if (res.ok) {
@@ -78,11 +122,11 @@ export default function ArticleDetailScreen() {
             title: params.title,
             excerpt: params.excerpt ?? null,
             body: params.body,
-            cover_url: params.cover_url ?? null,
+            cover_url: getArticleCoverUrl(params.cover_url) ?? null,
             tags: params.excerpt ? [params.excerpt] : [],
             published_at: params.published_at ?? new Date().toISOString(),
             author_id: "local",
-            profiles: { full_name: params.author ?? "PropTech Club", role: null },
+            profiles: { full_name: params.author ?? "PropTech Club", role: null, avatar_url: null, updated_at: null },
           };
         }
 
@@ -115,6 +159,9 @@ export default function ArticleDetailScreen() {
   // Render body — split by double newlines into paragraphs
   const paragraphs = article.body.split(/\n\n+/).filter(p => p.trim());
   const canManageArticle = isAdmin && isUuid(article.id) && article.author_id !== "local";
+
+  const coverUrl = getArticleCoverUrl(article.cover_url);
+  const authorAvatarUrl = getAvatarUri(article.profiles?.avatar_url, article.profiles?.updated_at);
 
   const handleEdit = () => {
     router.push({
@@ -172,8 +219,8 @@ export default function ArticleDetailScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
           {/* Cover */}
           <View style={s.coverWrap}>
-            {article.cover_url ? (
-              <Image source={{ uri: article.cover_url }} style={s.cover} resizeMode="cover" />
+            {coverUrl ? (
+              <Image source={{ uri: coverUrl }} style={s.cover} resizeMode="cover" />
             ) : (
               <View style={[s.cover, s.coverFallback]} />
             )}
@@ -222,9 +269,13 @@ export default function ArticleDetailScreen() {
             {/* Meta */}
             <View style={s.metaRow}>
               <View style={s.authorDot}>
-                <Text style={s.authorDotTxt}>
-                  {(article.profiles?.full_name ?? "P").charAt(0).toUpperCase()}
-                </Text>
+                {authorAvatarUrl ? (
+                  <Image source={{ uri: authorAvatarUrl }} style={s.authorAvatarImg} resizeMode="cover" />
+                ) : (
+                  <Text style={s.authorDotTxt}>
+                    {(article.profiles?.full_name ?? "P").charAt(0).toUpperCase()}
+                  </Text>
+                )}
               </View>
               <View>
                 <Text style={s.authorName}>
@@ -245,18 +296,31 @@ export default function ArticleDetailScreen() {
             {/* Body paragraphs */}
             {paragraphs.map((para, i) => {
               // Detect headings — lines starting with ##
+              if (para.startsWith("### ")) {
+                return (
+                  <Text key={i} style={s.heading3}>
+                    {renderInlineMarkdown(para.replace("### ", ""), `article-h3-${i}`, { bold: s.inlineBold, italic: s.inlineItalic })}
+                  </Text>
+                );
+              }
               if (para.startsWith("## ")) {
                 return (
-                  <Text key={i} style={s.heading}>{para.replace("## ", "")}</Text>
+                  <Text key={i} style={s.heading}>
+                    {renderInlineMarkdown(para.replace("## ", ""), `article-h2-${i}`, { bold: s.inlineBold, italic: s.inlineItalic })}
+                  </Text>
                 );
               }
               if (para.startsWith("# ")) {
                 return (
-                  <Text key={i} style={s.heading1}>{para.replace("# ", "")}</Text>
+                  <Text key={i} style={s.heading1}>
+                    {renderInlineMarkdown(para.replace("# ", ""), `article-h1-${i}`, { bold: s.inlineBold, italic: s.inlineItalic })}
+                  </Text>
                 );
               }
               return (
-                <Text key={i} style={s.para}>{para}</Text>
+                <Text key={i} style={s.para}>
+                  {renderInlineMarkdown(para, `article-p-${i}`, { bold: s.inlineBold, italic: s.inlineItalic })}
+                </Text>
               );
             })}
           </View>
@@ -306,7 +370,8 @@ const s = StyleSheet.create({
   tagTxt: { fontSize: 11, fontFamily: "Outfit_700Bold", color: "#3C3489" },
   title: { fontSize: 24, fontFamily: "Outfit_800ExtraBold", color: "#1A1A2E", lineHeight: 32, marginBottom: 16 },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
-  authorDot: { width: 38, height: 38, borderRadius: 12, backgroundColor: "#312FB8", alignItems: "center", justifyContent: "center" },
+  authorDot: { width: 38, height: 38, borderRadius: 12, backgroundColor: "#312FB8", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  authorAvatarImg: { width: "100%", height: "100%" },
   authorDotTxt: { color: "#FFF", fontSize: 14, fontFamily: "Outfit_800ExtraBold" },
   authorName: { fontSize: 13, fontFamily: "Outfit_700Bold", color: "#1A1A2E" },
   pubDate: { fontSize: 12, color: "#AAA", marginTop: 2, fontFamily: "Outfit_400Regular" },
@@ -314,5 +379,8 @@ const s = StyleSheet.create({
   excerpt: { fontSize: 16, fontFamily: "Outfit_400Regular", color: "#312FB8", lineHeight: 26, marginBottom: 20, transform: [{ skewX: "-8deg" }] },
   heading1: { fontSize: 22, fontFamily: "Outfit_800ExtraBold", color: "#1A1A2E", marginTop: 24, marginBottom: 12 },
   heading: { fontSize: 18, fontFamily: "Outfit_800ExtraBold", color: "#1A1A2E", marginTop: 20, marginBottom: 10 },
+  heading3: { fontSize: 16, fontFamily: "Outfit_800ExtraBold", color: "#1A1A2E", marginTop: 18, marginBottom: 8 },
   para: { fontSize: 15, color: "#333", lineHeight: 26, marginBottom: 16, fontFamily: "Outfit_400Regular" },
+  inlineBold: { fontFamily: "Outfit_800ExtraBold" },
+  inlineItalic: { fontStyle: "italic" },
 });
