@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "proptechclub",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon-contained.png",
     "splash": {
       "image": "./assets/logo.png",
       "resizeMode": "contain",
@@ -20,7 +20,7 @@
       "package": "pk.landtrack.proptech.club",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./assets/icon-contained.png",
         "backgroundColor": "#FFFFFF"
       }
     },
