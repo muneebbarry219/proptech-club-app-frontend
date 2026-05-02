@@ -7,7 +7,6 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, AUTH_URL, DB_URL } from "../constants/
 import { subscribeToConnectionChanges } from "../utils/subscribeToConnectionChanges";
 import { subscribeToMessageChanges } from "../utils/subscribeToMessageChanges";
 import { subscribeToProfileChanges } from "../utils/subscribeToProfileChanges";
-import { recordNotificationEvent } from "../utils/notificationEvents";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -397,14 +396,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refresh_token: data.refresh_token,
       };
       await saveSession(session);
-      await recordNotificationEvent(apiFetch, {
-        type: "signup_welcome",
-        recipientId: session.user.id,
-        actorId: session.user.id,
-        title: "Welcome to PropTech Club",
-        body: "Your account is ready. Start building your PropTech network.",
-        data: { route: "/home" },
-      });
       return {};
     } catch (e) {
       return { error: "Network error. Please check your connection." };
