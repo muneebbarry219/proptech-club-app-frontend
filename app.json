@@ -8,7 +8,7 @@
     "scheme": "proptechclub",
     "icon": "./assets/icon-contained.png",
     "splash": {
-      "image": "./assets/logo.png",
+      "image": "./assets/icon-contained.png",
       "resizeMode": "contain",
       "backgroundColor": "#1B196A"
     },
@@ -31,7 +31,8 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true

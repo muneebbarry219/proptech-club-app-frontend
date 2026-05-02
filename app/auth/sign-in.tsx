@@ -61,7 +61,7 @@ export default function SignInScreen() {
           <View style={styles.content}>
             <View style={styles.header}>
               <View style={styles.logoMark}>
-                <Image source={require("../../assets/proptech logo colored.png")} style={styles.logoImage} resizeMode="contain" />
+                <Image source={require("../../assets/icon-contained.png")} style={styles.logoImage} resizeMode="contain" />
               </View>
               <Text style={styles.title}>Welcome back</Text>
               <Text style={styles.subtitle}>Sign in to PropTech Club</Text>

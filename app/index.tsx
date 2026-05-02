@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  View, Text, StyleSheet, Animated,
-  TouchableOpacity, Image, Dimensions,
+  Animated,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type DimensionValue,
+  type ViewStyle,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -9,8 +15,20 @@ import { ArrowRight } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { storage } from "../utils/storage";
 
-const { width } = Dimensions.get("window");
 const ONBOARDED_KEY = "proptech_onboarded";
+const GRID_LINES: { id: string; left: DimensionValue; opacity: number }[] = Array.from({ length: 8 }, (_, index) => ({
+  id: `grid-${index}`,
+  left: `${6 + index * 13}%` as DimensionValue,
+  opacity: 0.025 + index * 0.004,
+}));
+const PARTICLE_POSITIONS: ViewStyle[] = [
+  { left: "8%", top: "12%" },
+  { left: "82%", top: "8%" },
+  { left: "18%", top: "72%" },
+  { left: "72%", top: "58%" },
+  { left: "48%", top: "86%" },
+  { left: "90%", top: "42%" },
+];
 const FLAG_URIS = {
   ksa: "https://flagcdn.com/w80/sa.png",
   pk: "https://flagcdn.com/w80/pk.png",
@@ -33,6 +51,7 @@ export default function SplashScreen() {
   const router = useRouter();
   const { isLoading, isAuthenticated, profile } = useAuth();
   const [canEnter, setCanEnter] = useState(false);
+  const [progressTrackWidth, setProgressTrackWidth] = useState(0);
 
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const logoY = useRef(new Animated.Value(20)).current;
@@ -51,12 +70,6 @@ export default function SplashScreen() {
     }))
   ).current;
 
-  const POSITIONS = [
-    { left: "8%", top: "12%" }, { left: "82%", top: "8%" },
-    { left: "18%", top: "72%" }, { left: "72%", top: "58%" },
-    { left: "48%", top: "86%" }, { left: "90%", top: "42%" },
-  ];
-
   useEffect(() => {
     setCanEnter(false);
     progressW.setValue(0);
@@ -64,6 +77,9 @@ export default function SplashScreen() {
     flagsLiftY.setValue(0);
     taglinePrimaryX.setValue(-42);
     taglineSecondaryX.setValue(-54);
+    btnOp.setValue(0);
+
+    if (!progressTrackWidth) return;
 
     particles.forEach((p, i) => {
       Animated.loop(
@@ -83,7 +99,7 @@ export default function SplashScreen() {
       ).start();
     });
 
-    Animated.sequence([
+    const entranceAnimation = Animated.sequence([
       Animated.parallel([
         Animated.timing(logoOpacity, { toValue: 1, duration: 800, delay: 300, useNativeDriver: true }),
         Animated.timing(logoY, { toValue: 0, duration: 800, delay: 300, useNativeDriver: true }),
@@ -95,21 +111,38 @@ export default function SplashScreen() {
         Animated.timing(taglinePrimaryX, { toValue: 0, duration: 720, useNativeDriver: true }),
         Animated.timing(taglineSecondaryX, { toValue: 0, duration: 820, delay: 120, useNativeDriver: true }),
       ]),
-      Animated.timing(btnOp, { toValue: 1, duration: 500, useNativeDriver: true }),
-    ]).start();
+    ]);
 
-    const prog = Animated.timing(progressW, {
-      toValue: width - 80,
-      duration: 5000,
-      useNativeDriver: false,
+    let progressAndButton: Animated.CompositeAnimation | undefined;
+    entranceAnimation.start(({ finished }) => {
+      if (!finished) return;
+
+      progressAndButton = Animated.parallel([
+        Animated.timing(progressW, {
+          toValue: progressTrackWidth,
+          duration: 1300,
+          useNativeDriver: false,
+        }),
+        Animated.sequence([
+          Animated.delay(1220),
+          Animated.timing(btnOp, { toValue: 1, duration: 80, useNativeDriver: true }),
+        ]),
+      ]);
+      progressAndButton.start(({ finished: progressFinished }) => {
+        if (!progressFinished) return;
+
+        setCanEnter(true);
+      });
     });
-    prog.start(({ finished }) => { if (finished) setCanEnter(true); });
+
     return () => {
-      prog.stop();
+      entranceAnimation.stop();
+      progressAndButton?.stop();
     };
   }, [
     particles,
     progressW,
+    progressTrackWidth,
     logoOpacity,
     logoY,
     logoLiftY,
@@ -137,12 +170,7 @@ export default function SplashScreen() {
   };
 
   return (
-    <TouchableOpacity
-      activeOpacity={1}
-      onPress={handleEnter}
-      style={{ flex: 1 }}
-      disabled={!canEnter}
-    >
+    <View style={{ flex: 1 }}>
       <LinearGradient
         colors={["#0f0e7a", "#1a18a0", "#312FB8", "#2820C2"]}
         start={{ x: 0.3, y: 1 }}
@@ -150,17 +178,17 @@ export default function SplashScreen() {
         style={StyleSheet.absoluteFillObject}
       />
 
-      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+      {GRID_LINES.map((line) => (
         <View
-          key={i}
-          style={[s.gridLine, { left: `${6 + i * 13}%` as any, opacity: 0.025 + i * 0.004 }]}
+          key={line.id}
+          style={[s.gridLine, { left: line.left, opacity: line.opacity }]}
         />
       ))}
 
       {particles.map((p, i) => (
         <Animated.View
           key={i}
-          style={[s.particle, POSITIONS[i] as any, {
+          style={[s.particle, PARTICLE_POSITIONS[i], {
             opacity: p.opacity,
             transform: [{ translateY: p.y }],
           }]}
@@ -176,7 +204,7 @@ export default function SplashScreen() {
             ]}
           >
             <Image
-              source={require("../assets/logo.png")}
+              source={require("../assets/proptech-club-logo-white.png")}
               style={s.logoImage}
               resizeMode="contain"
             />
@@ -220,13 +248,16 @@ export default function SplashScreen() {
         </View>
 
         <View style={s.bottom}>
-          <View style={s.progressTrack}>
+          <View
+            style={s.progressTrack}
+            onLayout={(event) => setProgressTrackWidth(event.nativeEvent.layout.width)}
+          >
             <Animated.View style={[s.progressBar, { width: progressW }]} />
           </View>
           <Text style={s.tapLabel}>PRESS THE BUTTON TO CONTINUE</Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -236,8 +267,8 @@ const s = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: 28, paddingTop: 60, paddingBottom: 44, justifyContent: "space-between" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   logoWrap: { alignItems: "center", marginBottom: 10 },
-  logoImage: { width: 132, height: 132 },
-  logoName: { fontSize: 38, color: "#fff", fontFamily: "BebasNeue", letterSpacing: 1.5, textAlign: "center", marginTop: 8 },
+  logoImage: { width: 330, height: 205 },
+  logoName: { fontSize: 38, color: "#fff", fontFamily: "BebasNeue", letterSpacing: 1.5, textAlign: "center", marginTop: -18 },
   flagsRow: {
     flexDirection: "row",
     alignItems: "center",

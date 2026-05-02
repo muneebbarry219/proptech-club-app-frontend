@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Bell } from "lucide-react-native";
 import { useAuth } from "../../context/AuthContext";
 
 function initials(name: string) {
@@ -26,7 +27,7 @@ export default function AppHeader() {
     <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
       <View style={styles.headerLeft}>
         <Image
-          source={require("../../assets/proptech logo colored.png")}
+          source={require("../../assets/icon-contained.png")}
           style={styles.logoMark}
           resizeMode="contain"
         />
@@ -35,22 +36,31 @@ export default function AppHeader() {
 
       <View style={styles.headerRight}>
         {isAuthenticated ? (
-          <TouchableOpacity
-            onPress={() => router.push("/auth/profile" as any)}
-            style={styles.avatarBtn}
-            activeOpacity={0.85}
-          >
-            {displayUri ? (
-              <Image
-                source={{ uri: displayUri }}
-                style={styles.avatarImg}
-              />
-            ) : (
-              <Text style={styles.avatarTxt}>
-                {displayName ? initials(displayName) : "?"}
-              </Text>
-            )}
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              onPress={() => router.push("/notifications" as any)}
+              style={styles.notificationBtn}
+              activeOpacity={0.85}
+            >
+              <Bell size={18} color="#312FB8" strokeWidth={2.2} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/auth/profile" as any)}
+              style={styles.avatarBtn}
+              activeOpacity={0.85}
+            >
+              {displayUri ? (
+                <Image
+                  source={{ uri: displayUri }}
+                  style={styles.avatarImg}
+                />
+              ) : (
+                <Text style={styles.avatarTxt}>
+                  {displayName ? initials(displayName) : "?"}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </>
         ) : (
           <TouchableOpacity
             onPress={() => router.push("/auth/sign-in" as any)}
@@ -79,6 +89,7 @@ const styles = StyleSheet.create({
   logoMark:    { width: 48, height: 48 },
   logoName:    { fontSize: 20, fontFamily: "BebasNeue", color: "#1B196A", letterSpacing: 0.3 },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  notificationBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: "#EEEDFE", alignItems: "center", justifyContent: "center" },
   avatarBtn:   { width: 34, height: 34, borderRadius: 10, backgroundColor: "#312FB8", alignItems: "center", justifyContent: "center", overflow: "hidden" },
   avatarImg:   { width: 34, height: 34, borderRadius: 10 },
   avatarTxt:   { color: "#fff", fontSize: 12, fontWeight: "700" },

@@ -135,7 +135,7 @@ export default function SignUpScreen() {
           {/* Header */}
           <View style={s.header}>
             <View style={s.logoMark}>
-              <Image source={require("../../assets/proptech logo colored.png")} style={s.logoImg} resizeMode="contain" />
+              <Image source={require("../../assets/icon-contained.png")} style={s.logoImg} resizeMode="contain" />
             </View>
             <Text style={s.title}>Join The Ecosystem</Text>
             <Text style={s.subtitle}>Create your account to enter the ecosystem</Text>
