@@ -67,6 +67,7 @@ interface AuthContextType {
   createProfile: (data: Omit<Profile, "id" | "is_verified" | "created_at">) => Promise<{ error?: string }>;
   updateProfile: (data: Partial<Profile>) => Promise<{ error?: string }>;
   refreshProfile: () => Promise<void>;
+  notifyConnectionChanged: () => void;
   apiFetch: (path: string, options?: RequestInit) => Promise<Response>;
   getAccessToken: () => string | null;
 }
@@ -503,12 +504,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loadUserData(currentUser.id, atRef.current);
   };
 
+  const notifyConnectionChanged = useCallback(() => {
+    setConnectionSyncTick((prev) => prev + 1);
+  }, []);
+
   return (
     <AuthContext.Provider value={{
       user, profile, membership,
       isLoading, isAuthenticated: !!user, connectionSyncTick, messageSyncTick, profileSyncTick,
       signUp, signIn, signOut,
       createProfile, updateProfile, refreshProfile,
+      notifyConnectionChanged,
       apiFetch,
       getAccessToken: () => atRef.current,
     }}>

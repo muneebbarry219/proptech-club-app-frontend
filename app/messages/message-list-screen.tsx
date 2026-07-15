@@ -420,19 +420,19 @@ export default function MessagesScreen() {
     return (
       <AppShell>
         <View style={s.container}>
-        <View style={s.empty}>
-          <View style={s.emptyIconWrap}>
-            <View style={s.emptyIconCircleLg} />
-            <View style={s.emptyIconCircleSm} />
-            <View style={s.emptyIconInner}>
-              <MessageSquareText size={20} color="#312FB8" strokeWidth={2.1} />
+          <View style={s.empty}>
+            <View style={s.emptyIconWrap}>
+              <View style={s.emptyIconCircleLg} />
+              <View style={s.emptyIconCircleSm} />
+              <View style={s.emptyIconInner}>
+                <MessageSquareText size={20} color="#312FB8" strokeWidth={2.1} />
+              </View>
             </View>
+            <Text style={s.emptyTitle}>Sign in to view messages</Text>
+            <TouchableOpacity onPress={() => router.push("/auth/sign-in" as any)} style={s.signInBtn}>
+              <Text style={s.signInTxt}>Sign In</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={s.emptyTitle}>Sign in to view messages</Text>
-          <TouchableOpacity onPress={() => router.push("/auth/sign-in" as any)} style={s.signInBtn}>
-            <Text style={s.signInTxt}>Sign In</Text>
-          </TouchableOpacity>
-        </View>
         </View>
       </AppShell>
     );
@@ -442,114 +442,116 @@ export default function MessagesScreen() {
     <AppShell>
       <View style={s.container}>
 
-      <View style={s.stickyHead}>
-        <View style={s.searchBar}>
-          <Search size={16} color="#AAA" strokeWidth={2} />
-          <TextInput
-            style={s.searchInput}
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search conversations..."
-            placeholderTextColor="#BBB"
-            returnKeyType="search"
-          />
-          {search.length > 0 ? (
-            <TouchableOpacity onPress={() => setSearch("")}>
-              <X size={16} color="#BBB" strokeWidth={2} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        <FlatList
-          data={FILTERS}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.value}
-          contentContainerStyle={s.filterList}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              onPress={() => setFilter(item.value)}
-              style={[s.filterChip, filter === item.value && s.filterChipOn]}
-              activeOpacity={0.8}
-            >
-              <Text style={[s.filterChipTxt, filter === item.value && s.filterChipTxtOn]}>
-                {item.label}
-                {item.value === "unread" && totalUnread > 0 ? ` (${totalUnread})` : ""}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
-
-      {loading ? (
-        <View style={s.loader}>
-          <ActivityIndicator color="#312FB8" size="large" />
-        </View>
-      ) : (
-        <FlatList
-          data={displayed}
-          keyExtractor={(item) => item.partnerId}
-          contentContainerStyle={s.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                load();
-              }}
-              tintColor="#312FB8"
-            />
-          }
-          ListEmptyComponent={<EmptyState hasSearch={search.length > 0 || filter !== "all"} onStartChat={openStartChat} />}
-          renderItem={({ item }) => (
-            <ConvRow conv={item} onPress={() => router.push(conversationRoute(item.partnerId))} />
-          )}
-        />
-      )}
-
-      <Modal visible={showStartChatModal} transparent animationType="fade" onRequestClose={() => setShowStartChatModal(false)}>
-        <Pressable style={s.modalBackdrop} onPress={() => setShowStartChatModal(false)}>
-          <Pressable style={s.modalCard} onPress={() => {}}>
-            <TouchableOpacity onPress={() => setShowStartChatModal(false)} activeOpacity={0.85} style={s.modalCloseBtn}>
-              <X size={14} color="#72768B" strokeWidth={2.2} />
-            </TouchableOpacity>
-
-            <View style={s.modalBadge}>
-              <Users size={20} color="#312FB8" strokeWidth={2.1} />
-            </View>
-            <Text style={s.modalTitle}>Start a new chat</Text>
-            <Text style={s.modalText}>Choose one of your connections to open a conversation.</Text>
-
-            {connectionsLoading ? (
-              <View style={s.modalState}>
-                <ActivityIndicator color="#312FB8" size="small" />
-              </View>
-            ) : connections.length === 0 ? (
-              <View style={s.modalState}>
-                <Text style={s.modalStateTitle}>No connections yet</Text>
-                <Text style={s.modalStateText}>You need to make connections to start conversation.</Text>
-              </View>
-            ) : (
-              <FlatList
-                data={connections}
-                keyExtractor={(item) => item.id}
-                style={s.connectionsList}
-                contentContainerStyle={s.connectionsListContent}
-                renderItem={({ item }) => (
-                  <ConnectionRow
-                    connection={item}
-                    onPress={() => {
-                      setShowStartChatModal(false);
-                      router.push(conversationRoute(item.id));
-                    }}
-                  />
-                )}
+        {displayed.length > 0 && (
+          <View style={s.stickyHead}>
+            <View style={s.searchBar}>
+              <Search size={16} color="#AAA" strokeWidth={2} />
+              <TextInput
+                style={s.searchInput}
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search conversations..."
+                placeholderTextColor="#BBB"
+                returnKeyType="search"
               />
+              {search.length > 0 ? (
+                <TouchableOpacity onPress={() => setSearch("")}>
+                  <X size={16} color="#BBB" strokeWidth={2} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            <FlatList
+              data={FILTERS}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.value}
+              contentContainerStyle={s.filterList}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => setFilter(item.value)}
+                  style={[s.filterChip, filter === item.value && s.filterChipOn]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[s.filterChipTxt, filter === item.value && s.filterChipTxtOn]}>
+                    {item.label}
+                    {item.value === "unread" && totalUnread > 0 ? ` (${totalUnread})` : ""}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        )}
+
+        {loading ? (
+          <View style={s.loader}>
+            <ActivityIndicator color="#312FB8" size="large" />
+          </View>
+        ) : (
+          <FlatList
+            data={displayed}
+            keyExtractor={(item) => item.partnerId}
+            contentContainerStyle={displayed.length > 0 ? s.listContent : s.emptyListContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => {
+                  setRefreshing(true);
+                  load();
+                }}
+                tintColor="#312FB8"
+              />
+            }
+            ListEmptyComponent={<EmptyState hasSearch={search.length > 0 || filter !== "all"} onStartChat={openStartChat} />}
+            renderItem={({ item }) => (
+              <ConvRow conv={item} onPress={() => router.push(conversationRoute(item.partnerId))} />
             )}
+          />
+        )}
+
+        <Modal visible={showStartChatModal} transparent animationType="fade" onRequestClose={() => setShowStartChatModal(false)}>
+          <Pressable style={s.modalBackdrop} onPress={() => setShowStartChatModal(false)}>
+            <Pressable style={s.modalCard} onPress={() => { }}>
+              <TouchableOpacity onPress={() => setShowStartChatModal(false)} activeOpacity={0.85} style={s.modalCloseBtn}>
+                <X size={14} color="#72768B" strokeWidth={2.2} />
+              </TouchableOpacity>
+
+              <View style={s.modalBadge}>
+                <Users size={20} color="#312FB8" strokeWidth={2.1} />
+              </View>
+              <Text style={s.modalTitle}>Start a new chat</Text>
+              <Text style={s.modalText}>Choose one of your connections to open a conversation.</Text>
+
+              {connectionsLoading ? (
+                <View style={s.modalState}>
+                  <ActivityIndicator color="#312FB8" size="small" />
+                </View>
+              ) : connections.length === 0 ? (
+                <View style={s.modalState}>
+                  <Text style={s.modalStateTitle}>No connections yet</Text>
+                  <Text style={s.modalStateText}>You need to make connections to start conversation.</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={connections}
+                  keyExtractor={(item) => item.id}
+                  style={s.connectionsList}
+                  contentContainerStyle={s.connectionsListContent}
+                  renderItem={({ item }) => (
+                    <ConnectionRow
+                      connection={item}
+                      onPress={() => {
+                        setShowStartChatModal(false);
+                        router.push(conversationRoute(item.id));
+                      }}
+                    />
+                  )}
+                />
+              )}
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
+        </Modal>
 
       </View>
     </AppShell>
@@ -585,6 +587,7 @@ const s = StyleSheet.create({
   filterChipTxtOn: { color: "#FFFFFF", fontFamily: "Outfit_600SemiBold", letterSpacing: 0 },
   loader: { flex: 1, alignItems: "center", justifyContent: "center" },
   listContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
+  emptyListContent: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 32 },
   convRow: {
     flexDirection: "row",
     alignItems: "center",

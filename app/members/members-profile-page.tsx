@@ -106,7 +106,7 @@ function connectionDeletePath(currentUserId: string, memberId: string) {
 export default function MemberProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { user, apiFetch, isAuthenticated, connectionSyncTick, profileSyncTick } = useAuth();
+  const { user, apiFetch, isAuthenticated, connectionSyncTick, profileSyncTick, notifyConnectionChanged } = useAuth();
 
   const [member, setMember] = useState<MemberProfile | null>(null);
   const [connStatus, setConnStatus] = useState<ConnectionStatus>("none");
@@ -209,6 +209,7 @@ export default function MemberProfileScreen() {
     setActionLoad(false);
 
     if (res.ok) {
+      notifyConnectionChanged();
       await loadConnectionState();
       return;
     }
@@ -227,6 +228,7 @@ export default function MemberProfileScreen() {
     setActionLoad(false);
 
     if (res.ok) {
+      notifyConnectionChanged();
       await loadConnectionState();
       return;
     }
@@ -235,15 +237,17 @@ export default function MemberProfileScreen() {
   };
 
   const handleDecline = async () => {
-    if (!user) return;
+    if (!user || !connId) return;
 
     setActionLoad(true);
     const res = await apiFetch(`/connections?id=eq.${connId}`, {
-      method: "DELETE",
+      method: "PATCH",
+      body: JSON.stringify({ status: "declined" }),
     });
     setActionLoad(false);
 
     if (res.ok) {
+      notifyConnectionChanged();
       await loadConnectionState();
       return;
     }
@@ -348,12 +352,12 @@ export default function MemberProfileScreen() {
     if (connStatus === "pending_received") {
       return (
         <View style={s.pendingActions}>
+          <TouchableOpacity onPress={handleAccept} style={s.btnAccept} activeOpacity={0.85}>
+            <Check size={16} color="#FFFFFF" strokeWidth={2.5} />
+            <Text style={s.btnAcceptTxt}>Accept</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={handleDecline} style={s.btnDecline} activeOpacity={0.85}>
             <Text style={s.btnDeclineTxt}>Decline</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleAccept} style={s.btnConnect} activeOpacity={0.85}>
-            <Check size={16} color="#FFFFFF" strokeWidth={2.5} />
-            <Text style={s.btnConnectTxt}>Accept</Text>
           </TouchableOpacity>
         </View>
       );
@@ -727,6 +731,16 @@ const s = StyleSheet.create({
   },
   btnDisconnectTxt: { color: "#B42318", fontSize: 15, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
   pendingActions: { flexDirection: "row", gap: 10 },
+  btnAccept: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#0F6E56",
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  btnAcceptTxt: { color: "#FFFFFF", fontSize: 15, fontFamily: "Outfit_700Bold", letterSpacing: 0 },
   btnDecline: {
     flexDirection: "row",
     alignItems: "center",

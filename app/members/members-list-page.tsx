@@ -253,7 +253,15 @@ function EmptyState({ tab }: { tab: "all" | "connected" }) {
 
 export default function MembersScreen() {
   const router = useRouter();
-  const { user, apiFetch, isAuthenticated, isLoading, connectionSyncTick, profileSyncTick } = useAuth();
+  const {
+    user,
+    apiFetch,
+    isAuthenticated,
+    isLoading,
+    connectionSyncTick,
+    profileSyncTick,
+    notifyConnectionChanged,
+  } = useAuth();
 
   const [tab, setTab] = useState<"all" | "connected">("all");
   const [members, setMembers] = useState<Member[]>([]);
@@ -327,7 +335,7 @@ export default function MembersScreen() {
           return {
             ...profile,
             connectionStatus: status,
-            connectionId: connection.id,
+            connectionId: status === "none" ? null : connection.id,
           };
         });
 
@@ -391,6 +399,7 @@ export default function MembersScreen() {
       return;
     }
 
+    notifyConnectionChanged();
     await load();
   };
 
@@ -414,6 +423,7 @@ export default function MembersScreen() {
       return;
     }
 
+    notifyConnectionChanged();
     await load();
   };
 
@@ -453,7 +463,7 @@ export default function MembersScreen() {
   };
 
   const handleDeclineReceived = async (member: Member) => {
-    if (!user) return;
+    if (!user || !member.connectionId) return;
 
     setMembers((prev) =>
       prev.map((item) =>
@@ -461,8 +471,9 @@ export default function MembersScreen() {
       )
     );
 
-    const res = await apiFetch(receivedRequestDeletePath(user.id, member.id), {
-      method: "DELETE",
+    const res = await apiFetch(`/connections?id=eq.${member.connectionId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "declined" }),
     });
 
     if (!res.ok) {
@@ -477,6 +488,7 @@ export default function MembersScreen() {
       return;
     }
 
+    notifyConnectionChanged();
     await load();
   };
 
@@ -501,9 +513,16 @@ export default function MembersScreen() {
   });
 
   const allMembers = [...filtered].sort((a, b) => {
-    const aTime = new Date(a.created_at).getTime();
-    const bTime = new Date(b.created_at).getTime();
-    return joinedSort === "newest" ? bTime - aTime : aTime - bTime;
+    const pendingRank = (member: Member) =>
+      member.connectionStatus === "pending_received"
+        ? 0
+        : member.connectionStatus === "pending_sent"
+          ? 1
+          : 2;
+    const rankDiff = pendingRank(a) - pendingRank(b);
+    if (rankDiff !== 0) return rankDiff;
+
+    return a.full_name.localeCompare(b.full_name, undefined, { sensitivity: "base" });
   });
   const connectedMembers = members.filter((member) => member.connectionStatus === "connected");
   const connectedCount = connectedMembers.length;

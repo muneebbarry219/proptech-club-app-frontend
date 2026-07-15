@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter, usePathname } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -15,11 +15,42 @@ const ITEMS = [
 ];
 
 export default function BottomNav() {
-  const router   = useRouter();
+  const router = useRouter();
   const pathname = usePathname();
-  const insets   = useSafeAreaInsets();
-  const { isAuthenticated } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { user, isAuthenticated, apiFetch, messageSyncTick } = useAuth();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadUnreadMessages = async () => {
+      if (!isAuthenticated || !user) {
+        if (active) setUnreadMessageCount(0);
+        return;
+      }
+
+      try {
+        const res = await apiFetch(
+          `/direct_messages?receiver_id=eq.${user.id}&is_read=eq.false&select=id`
+        );
+        const rows: Array<{ id: string }> = res.ok ? await res.json() : [];
+
+        if (active) {
+          setUnreadMessageCount(rows.length);
+        }
+      } catch {
+        if (active) setUnreadMessageCount(0);
+      }
+    };
+
+    void loadUnreadMessages();
+
+    return () => {
+      active = false;
+    };
+  }, [apiFetch, isAuthenticated, messageSyncTick, user]);
 
   const isActive = (route: string) => {
     if (route === "/home") return pathname === "/home";
@@ -55,11 +86,20 @@ export default function BottomNav() {
                 style={styles.item}
                 activeOpacity={0.7}
               >
-                <Icon
-                  size={22}
-                  color={active ? "#312FB8" : "#aaaaaa"}
-                  strokeWidth={active ? 2.2 : 1.8}
-                />
+                <View style={styles.iconSlot}>
+                  <Icon
+                    size={22}
+                    color={active ? "#312FB8" : "#aaaaaa"}
+                    strokeWidth={active ? 2.2 : 1.8}
+                  />
+                  {key === "messages" && unreadMessageCount > 0 ? (
+                    <View style={styles.messageBadge}>
+                      <Text style={styles.messageBadgeText}>
+                        {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
                 <Text style={[styles.label, active && styles.labelActive]}>
                   {label}
                 </Text>
@@ -94,6 +134,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   item: { flex: 1, alignItems: "center", gap: 3 },
+  iconSlot: {
+    width: 28,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  messageBadge: {
+    position: "absolute",
+    top: -6,
+    right: -7,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#E53935",
+    borderWidth: 1,
+    borderColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  messageBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 8,
+    lineHeight: 10,
+    fontFamily: "Outfit_700Bold",
+    letterSpacing: 0,
+  },
   label: { fontSize: 9, fontFamily: "Outfit_400Regular", letterSpacing: 0, color: "#aaaaaa" },
   labelActive: { fontFamily: "Outfit_600SemiBold", color: "#312FB8" },
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: "#312FB8", marginTop: 1 },

@@ -16,4 +16,12 @@ module.exports = ({ config }) => ({
       ? "pk.landtrack.proptech.club.dev"
       : config.android?.package,
   },
+  extra: {
+    ...config.extra,
+    googleOAuth: {
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+      androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    },
+  },
 });

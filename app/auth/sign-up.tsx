@@ -8,6 +8,8 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react-native";
 import DiscardSignupModal from "../../components/modals/DiscardSignupModal";
+import { useAuth } from "../../context/AuthContext";
+import { useGoogleAuthRequest } from "../../utils/google-auth";
 import { setPendingSignupDraft } from "../../utils/pending-signup";
 
 
@@ -22,6 +24,8 @@ const COUNTRY_CODES = [
 export default function SignUpScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { signIn } = useAuth();
+  const googleAuth = useGoogleAuthRequest();
 
   const [fullName, setFullName] = useState("");
   const [countryCode, setCountryCode] = useState("+92");
@@ -32,6 +36,7 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [pendingLeaveTarget, setPendingLeaveTarget] = useState<(() => void) | null>(null);
@@ -113,6 +118,46 @@ export default function SignUpScreen() {
     }
   };
 
+  const continueWithGoogleAccount = async (account: { email: string; fullName: string; googleId: string }) => {
+    await setPendingSignupDraft({
+      fullName: account.fullName,
+      whatsapp: "",
+      email: account.email,
+      password: account.googleId,
+    });
+
+    router.replace({
+      pathname: "/auth/profile",
+      params: { mode: "complete-signup" },
+    });
+  };
+
+  const handleGoogleSignUp = async () => {
+    setGoogleLoading(true);
+    setError("");
+
+    try {
+      const result = await googleAuth.prompt();
+      if (result.error || !result.account) {
+        setError(result.error ?? "Google sign-up failed.");
+        return;
+      }
+
+      const signInResult = await signIn(result.account.email, result.account.googleId);
+      if (!signInResult.error) {
+        router.replace("/home");
+        return;
+      }
+
+      await continueWithGoogleAccount(result.account);
+    } catch (googleError) {
+      console.error("[SignUpScreen] Google sign-up failed:", googleError);
+      setError("Could not continue with Google right now. Please try again.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <LinearGradient
       colors={["#0f0e7a", "#1a18a0", "#312FB8"]}
@@ -135,7 +180,7 @@ export default function SignUpScreen() {
           {/* Header */}
           <View style={s.header}>
             <View style={s.logoMark}>
-              <Image source={require("../../assets/icon-contained.png")} style={s.logoImg} resizeMode="contain" />
+              <Image source={require("../../assets/proptech-club-logo-color.png")} style={s.logoImg} resizeMode="contain" />
             </View>
             <Text style={s.title}>Join The Ecosystem</Text>
             <Text style={s.subtitle}>Create your account to enter the ecosystem</Text>
@@ -148,6 +193,26 @@ export default function SignUpScreen() {
                 <Text style={s.errorText}>{error}</Text>
               </View>
             )}
+
+            <TouchableOpacity
+              onPress={handleGoogleSignUp}
+              disabled={googleLoading || loading || googleAuth.disabled}
+              activeOpacity={0.85}
+              style={[s.googleBtn, (googleLoading || loading || googleAuth.disabled) && s.googleBtnDisabled]}
+            >
+              <Text style={s.googleMark}>G</Text>
+              {googleLoading ? (
+                <ActivityIndicator color="#1a1a2e" />
+              ) : (
+                <Text style={s.googleBtnText}>Continue with Google</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={s.dividerRow}>
+              <View style={s.dividerLine} />
+              <Text style={s.dividerText}>OR</Text>
+              <View style={s.dividerLine} />
+            </View>
 
             {/* Full Name */}
             <Text style={s.label}>FULL NAME</Text>
@@ -304,13 +369,44 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   header: { alignItems: "center", marginBottom: 28 },
-  logoMark: { width: 72, height: 72, borderRadius: 20, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", marginBottom: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 8 },
-  logoImg: { width: 58, height: 58 },
+  logoMark: {
+    width: 86,
+    height: 86,
+    borderRadius: 22,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  logoImg: { width: 70, height: 70 },
   title: { color: "#fff", fontSize: 26, fontFamily: "Outfit_700Bold", letterSpacing: 0, marginBottom: 6, textAlign: "center" },
   subtitle: { color: "rgba(255,255,255,0.6)", fontSize: 14, fontFamily: "Outfit_400Regular", letterSpacing: 0, textAlign: "center" },
   card: { backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.2, shadowRadius: 32, elevation: 12 },
   errorBox: { backgroundColor: "rgba(220,38,38,0.08)", borderWidth: 1, borderColor: "rgba(220,38,38,0.2)", borderRadius: 10, padding: 12, marginBottom: 16 },
   errorText: { color: "#dc2626", fontSize: 13, fontFamily: "Outfit_400Regular", letterSpacing: 0 },
+  googleBtn: {
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "rgba(26,26,46,0.12)",
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginBottom: 18,
+  },
+  googleBtnDisabled: { opacity: 0.65 },
+  googleMark: { fontSize: 18, fontFamily: "Outfit_700Bold", letterSpacing: 0, color: "#1a73e8" },
+  googleBtnText: { fontSize: 15, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#1a1a2e" },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 18 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "rgba(49,47,184,0.12)" },
+  dividerText: { fontSize: 11, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#8A8FA8" },
   label: { fontSize: 11, fontFamily: "Outfit_600SemiBold", color: "#555", letterSpacing: 0, marginBottom: 6 },
   mt: { marginTop: 14 },
   input: { height: 52, borderRadius: 12, borderWidth: 1.5, borderColor: "rgba(49,47,184,0.15)", paddingHorizontal: 16, fontSize: 15, fontFamily: "Outfit_400Regular", letterSpacing: 0, color: "#1a1a2e", backgroundColor: "#fafafe" },

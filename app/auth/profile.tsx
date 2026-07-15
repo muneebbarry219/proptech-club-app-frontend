@@ -515,8 +515,8 @@ export default function ProfileScreen() {
 
   const isCompletingSignup = mode === "complete-signup" || (!isLoading && !!user && !profile);
 
-  const [avatarUri,  setAvatarUri]  = useState(profile?.avatar_url ?? "");
-  const [uploading,  setUploading]  = useState(false);
+  const [avatarUri, setAvatarUri] = useState(profile?.avatar_url ?? "");
+  const [uploading, setUploading] = useState(false);
 
   // Sync avatarUri from DB only when currently empty (app restart / fresh load)
   useEffect(() => {
@@ -781,8 +781,10 @@ export default function ProfileScreen() {
   const renderAvatar = () => {
     if (uploading) {
       return (
-        <View style={[s.avatarImage, { alignItems: "center", justifyContent: "center",
-          backgroundColor: "rgba(0,0,0,0.35)", borderRadius: 24 }]}>
+        <View style={[s.avatarImage, {
+          alignItems: "center", justifyContent: "center",
+          backgroundColor: "rgba(0,0,0,0.35)", borderRadius: 24
+        }]}>
           <ActivityIndicator color="#fff" size="small" />
         </View>
       );
@@ -1623,4 +1625,3 @@ const ms = StyleSheet.create({
   eyeBtn: { position: "absolute", right: 14, top: 16 },
   textarea: { height: 100, paddingTop: 14, paddingBottom: 14 },
 });
-

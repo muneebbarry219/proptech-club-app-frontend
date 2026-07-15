@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
+import * as Linking from "expo-linking";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, Text, TextInput } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -15,6 +16,7 @@ import {
   Outfit_900Black,
 } from "@expo-google-fonts/outfit";
 import { AuthProvider } from "../context/AuthContext";
+import { captureRecoveryToken } from "../utils/password-recovery";
 
 // ── Weight → Outfit family ────────────────────────────────────
 
@@ -80,6 +82,7 @@ function applyFontPatch() {
 // ── Root layout ───────────────────────────────────────────────
 
 export default function RootLayout() {
+  const router = useRouter();
   const [fontsLoaded] = useFonts({
     BebasNeue:            BebasNeue_400Regular,
     Outfit_300Light,
@@ -97,6 +100,19 @@ export default function RootLayout() {
       applyFontPatch();
     }
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    const handleRecoveryUrl = (url: string | null) => {
+      if (captureRecoveryToken(url)) {
+        router.replace("/auth/reset-password");
+      }
+    };
+
+    void Linking.getInitialURL().then(handleRecoveryUrl);
+    const subscription = Linking.addEventListener("url", ({ url }) => handleRecoveryUrl(url));
+
+    return () => subscription.remove();
+  }, [router]);
 
   if (!fontsLoaded) return null;
 

@@ -16,16 +16,20 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "../../context/AuthContext";
+import { isMissingGooglePasswordAccount, useGoogleAuthRequest } from "../../utils/google-auth";
+import { setPendingSignupDraft } from "../../utils/pending-signup";
 
 export default function SignInScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { signIn } = useAuth();
+  const googleAuth = useGoogleAuthRequest();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleSignIn = async () => {
@@ -47,6 +51,47 @@ export default function SignInScreen() {
     router.replace("/home");
   };
 
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    setError("");
+
+    try {
+      const googleResult = await googleAuth.prompt();
+      if (googleResult.error || !googleResult.account) {
+        setError(googleResult.error ?? "Google sign-in failed.");
+        return;
+      }
+
+      const result = await signIn(googleResult.account.email, googleResult.account.googleId);
+      if (!result.error) {
+        router.replace("/home");
+        return;
+      }
+
+      if (!isMissingGooglePasswordAccount(result.error)) {
+        setError(result.error);
+        return;
+      }
+
+      await setPendingSignupDraft({
+        fullName: googleResult.account.fullName,
+        whatsapp: "",
+        email: googleResult.account.email,
+        password: googleResult.account.googleId,
+      });
+
+      router.replace({
+        pathname: "/auth/profile",
+        params: { mode: "complete-signup" },
+      });
+    } catch (googleError) {
+      console.error("[SignInScreen] Google sign-in failed:", googleError);
+      setError("Could not continue with Google right now. Please try again.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <LinearGradient colors={["#0f0e7a", "#1a18a0", "#312FB8"]} start={{ x: 0, y: 1 }} end={{ x: 0, y: 0 }} style={{ flex: 1 }}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
@@ -61,7 +106,7 @@ export default function SignInScreen() {
           <View style={styles.content}>
             <View style={styles.header}>
               <View style={styles.logoMark}>
-                <Image source={require("../../assets/icon-contained.png")} style={styles.logoImage} resizeMode="contain" />
+                <Image source={require("../../assets/proptech-club-logo-color.png")} style={styles.logoImage} resizeMode="contain" />
               </View>
               <Text style={styles.title}>Welcome back</Text>
               <Text style={styles.subtitle}>Sign in to PropTech Club</Text>
@@ -73,6 +118,26 @@ export default function SignInScreen() {
                   <Text style={styles.errorText}>{error}</Text>
                 </View>
               )}
+
+              <TouchableOpacity
+                onPress={handleGoogleSignIn}
+                disabled={googleLoading || loading || googleAuth.disabled}
+                activeOpacity={0.85}
+                style={[styles.googleBtn, (googleLoading || loading || googleAuth.disabled) && styles.googleBtnDisabled]}
+              >
+                <Text style={styles.googleMark}>G</Text>
+                {googleLoading ? (
+                  <ActivityIndicator color="#1a1a2e" />
+                ) : (
+                  <Text style={styles.googleBtnText}>Continue with Google</Text>
+                )}
+              </TouchableOpacity>
+
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.dividerLine} />
+              </View>
 
               <Text style={styles.label}>EMAIL ADDRESS</Text>
               <TextInput
@@ -106,6 +171,17 @@ export default function SignInScreen() {
                   )}
                 </TouchableOpacity>
               </View>
+
+              <TouchableOpacity
+                onPress={() => router.push({
+                  pathname: "/auth/forgot-password",
+                  params: email.trim() ? { email: email.trim() } : {},
+                })}
+                activeOpacity={0.7}
+                style={styles.forgotPasswordButton}
+              >
+                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity onPress={handleSignIn} disabled={loading} activeOpacity={0.85} style={styles.submitWrap}>
                 <LinearGradient colors={["#312FB8", "#1B196A"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.submitBtn}>
@@ -158,22 +234,22 @@ const styles = StyleSheet.create({
     marginBottom: 34,
   },
   logoMark: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
+    width: 86,
+    height: 86,
+    borderRadius: 22,
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 16,
     elevation: 8,
+    marginBottom: 12,
   },
   logoImage: {
-    width: 62,
-    height: 62,
+    width: 70,
+    height: 70,
   },
   title: {
     color: "#fff",
@@ -215,6 +291,50 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit_400Regular",
     letterSpacing: 0,
   },
+  googleBtn: {
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "rgba(26,26,46,0.12)",
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginBottom: 18,
+  },
+  googleBtnDisabled: {
+    opacity: 0.65,
+  },
+  googleMark: {
+    fontSize: 18,
+    fontFamily: "Outfit_700Bold",
+    letterSpacing: 0,
+    color: "#1a73e8",
+  },
+  googleBtnText: {
+    fontSize: 15,
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
+    color: "#1a1a2e",
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 18,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "rgba(49,47,184,0.12)",
+  },
+  dividerText: {
+    fontSize: 11,
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
+    color: "#8A8FA8",
+  },
   label: {
     fontSize: 11,
     fontFamily: "Outfit_600SemiBold",
@@ -239,8 +359,18 @@ const styles = StyleSheet.create({
     right: 14,
     top: 16,
   },
+  forgotPasswordButton: {
+    alignSelf: "flex-end",
+    marginTop: 10,
+    paddingVertical: 4,
+  },
+  forgotPasswordText: {
+    color: "#312FB8",
+    fontSize: 13,
+    fontFamily: "Outfit_600SemiBold",
+  },
   submitWrap: {
-    marginTop: 22,
+    marginTop: 14,
     borderRadius: 14,
     overflow: "hidden",
   },
