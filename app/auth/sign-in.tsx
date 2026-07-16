@@ -24,6 +24,7 @@ export default function SignInScreen() {
   const insets = useSafeAreaInsets();
   const { signIn } = useAuth();
   const googleAuth = useGoogleAuthRequest();
+  const showGoogleAuth = Platform.OS !== "ios";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -119,25 +120,29 @@ export default function SignInScreen() {
                 </View>
               )}
 
-              <TouchableOpacity
-                onPress={handleGoogleSignIn}
-                disabled={googleLoading || loading || googleAuth.disabled}
-                activeOpacity={0.85}
-                style={[styles.googleBtn, (googleLoading || loading || googleAuth.disabled) && styles.googleBtnDisabled]}
-              >
-                <Text style={styles.googleMark}>G</Text>
-                {googleLoading ? (
-                  <ActivityIndicator color="#1a1a2e" />
-                ) : (
-                  <Text style={styles.googleBtnText}>Continue with Google</Text>
-                )}
-              </TouchableOpacity>
+              {showGoogleAuth ? (
+                <>
+                  <TouchableOpacity
+                    onPress={handleGoogleSignIn}
+                    disabled={googleLoading || loading || googleAuth.disabled}
+                    activeOpacity={0.85}
+                    style={[styles.googleBtn, (googleLoading || loading || googleAuth.disabled) && styles.googleBtnDisabled]}
+                  >
+                    <Text style={styles.googleMark}>G</Text>
+                    {googleLoading ? (
+                      <ActivityIndicator color="#1a1a2e" />
+                    ) : (
+                      <Text style={styles.googleBtnText}>Continue with Google</Text>
+                    )}
+                  </TouchableOpacity>
 
-              <View style={styles.dividerRow}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>OR</Text>
-                <View style={styles.dividerLine} />
-              </View>
+                  <View style={styles.dividerRow}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>OR</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+                </>
+              ) : null}
 
               <Text style={styles.label}>EMAIL ADDRESS</Text>
               <TextInput

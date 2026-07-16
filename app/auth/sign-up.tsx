@@ -26,6 +26,7 @@ export default function SignUpScreen() {
   const insets = useSafeAreaInsets();
   const { signIn } = useAuth();
   const googleAuth = useGoogleAuthRequest();
+  const showGoogleAuth = Platform.OS !== "ios";
 
   const [fullName, setFullName] = useState("");
   const [countryCode, setCountryCode] = useState("+92");
@@ -194,25 +195,29 @@ export default function SignUpScreen() {
               </View>
             )}
 
-            <TouchableOpacity
-              onPress={handleGoogleSignUp}
-              disabled={googleLoading || loading || googleAuth.disabled}
-              activeOpacity={0.85}
-              style={[s.googleBtn, (googleLoading || loading || googleAuth.disabled) && s.googleBtnDisabled]}
-            >
-              <Text style={s.googleMark}>G</Text>
-              {googleLoading ? (
-                <ActivityIndicator color="#1a1a2e" />
-              ) : (
-                <Text style={s.googleBtnText}>Continue with Google</Text>
-              )}
-            </TouchableOpacity>
+            {showGoogleAuth ? (
+              <>
+                <TouchableOpacity
+                  onPress={handleGoogleSignUp}
+                  disabled={googleLoading || loading || googleAuth.disabled}
+                  activeOpacity={0.85}
+                  style={[s.googleBtn, (googleLoading || loading || googleAuth.disabled) && s.googleBtnDisabled]}
+                >
+                  <Text style={s.googleMark}>G</Text>
+                  {googleLoading ? (
+                    <ActivityIndicator color="#1a1a2e" />
+                  ) : (
+                    <Text style={s.googleBtnText}>Continue with Google</Text>
+                  )}
+                </TouchableOpacity>
 
-            <View style={s.dividerRow}>
-              <View style={s.dividerLine} />
-              <Text style={s.dividerText}>OR</Text>
-              <View style={s.dividerLine} />
-            </View>
+                <View style={s.dividerRow}>
+                  <View style={s.dividerLine} />
+                  <Text style={s.dividerText}>OR</Text>
+                  <View style={s.dividerLine} />
+                </View>
+              </>
+            ) : null}
 
             {/* Full Name */}
             <Text style={s.label}>FULL NAME</Text>

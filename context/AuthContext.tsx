@@ -64,6 +64,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<{ error?: string }>;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<{ error?: string }>;
   createProfile: (data: Omit<Profile, "id" | "is_verified" | "created_at">) => Promise<{ error?: string }>;
   updateProfile: (data: Partial<Profile>) => Promise<{ error?: string }>;
   refreshProfile: () => Promise<void>;
@@ -426,6 +427,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await clearSession();
   };
 
+  const deleteAccount = async (): Promise<{ error?: string }> => {
+    const currentUser = userRef.current;
+    const token = atRef.current;
+    if (!currentUser || !token) return { error: "Not authenticated" };
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/delete-account`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        return {
+          error: data.error ?? (res.status === 401
+            ? "For your security, sign out and sign in again before deleting your account."
+            : "Could not delete your account. Please try again."),
+        };
+      }
+
+      await Promise.all([
+        storage.removeItem(`proptech_notifications_seen_at_${currentUser.id}`),
+        storage.removeItem(`proptech_notifications_connection_snapshot_${currentUser.id}`),
+        storage.removeItem(`proptech_notifications_read_keys_${currentUser.id}`),
+        storage.removeItem("proptech_pending_signup_v1"),
+      ]);
+      await clearSession();
+      return {};
+    } catch (error) {
+      console.error("[AuthContext] deleteAccount failed:", error);
+      return { error: "Network error. Please check your connection and try again." };
+    }
+  };
+
   const createProfile = async (
     data: Omit<Profile, "id" | "is_verified" | "created_at">
   ): Promise<{ error?: string }> => {
@@ -512,7 +551,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{
       user, profile, membership,
       isLoading, isAuthenticated: !!user, connectionSyncTick, messageSyncTick, profileSyncTick,
-      signUp, signIn, signOut,
+      signUp, signIn, signOut, deleteAccount,
       createProfile, updateProfile, refreshProfile,
       notifyConnectionChanged,
       apiFetch,
