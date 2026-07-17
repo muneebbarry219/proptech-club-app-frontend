@@ -16,21 +16,16 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "../../context/AuthContext";
-import { isMissingGooglePasswordAccount, useGoogleAuthRequest } from "../../utils/google-auth";
-import { setPendingSignupDraft } from "../../utils/pending-signup";
 
 export default function SignInScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { signIn } = useAuth();
-  const googleAuth = useGoogleAuthRequest();
-  const showGoogleAuth = Platform.OS !== "ios";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleSignIn = async () => {
@@ -50,47 +45,6 @@ export default function SignInScreen() {
     }
 
     router.replace("/home");
-  };
-
-  const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
-    setError("");
-
-    try {
-      const googleResult = await googleAuth.prompt();
-      if (googleResult.error || !googleResult.account) {
-        setError(googleResult.error ?? "Google sign-in failed.");
-        return;
-      }
-
-      const result = await signIn(googleResult.account.email, googleResult.account.googleId);
-      if (!result.error) {
-        router.replace("/home");
-        return;
-      }
-
-      if (!isMissingGooglePasswordAccount(result.error)) {
-        setError(result.error);
-        return;
-      }
-
-      await setPendingSignupDraft({
-        fullName: googleResult.account.fullName,
-        whatsapp: "",
-        email: googleResult.account.email,
-        password: googleResult.account.googleId,
-      });
-
-      router.replace({
-        pathname: "/auth/profile",
-        params: { mode: "complete-signup" },
-      });
-    } catch (googleError) {
-      console.error("[SignInScreen] Google sign-in failed:", googleError);
-      setError("Could not continue with Google right now. Please try again.");
-    } finally {
-      setGoogleLoading(false);
-    }
   };
 
   return (
@@ -119,30 +73,6 @@ export default function SignInScreen() {
                   <Text style={styles.errorText}>{error}</Text>
                 </View>
               )}
-
-              {showGoogleAuth ? (
-                <>
-                  <TouchableOpacity
-                    onPress={handleGoogleSignIn}
-                    disabled={googleLoading || loading || googleAuth.disabled}
-                    activeOpacity={0.85}
-                    style={[styles.googleBtn, (googleLoading || loading || googleAuth.disabled) && styles.googleBtnDisabled]}
-                  >
-                    <Text style={styles.googleMark}>G</Text>
-                    {googleLoading ? (
-                      <ActivityIndicator color="#1a1a2e" />
-                    ) : (
-                      <Text style={styles.googleBtnText}>Continue with Google</Text>
-                    )}
-                  </TouchableOpacity>
-
-                  <View style={styles.dividerRow}>
-                    <View style={styles.dividerLine} />
-                    <Text style={styles.dividerText}>OR</Text>
-                    <View style={styles.dividerLine} />
-                  </View>
-                </>
-              ) : null}
 
               <Text style={styles.label}>EMAIL ADDRESS</Text>
               <TextInput
@@ -295,50 +225,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Outfit_400Regular",
     letterSpacing: 0,
-  },
-  googleBtn: {
-    height: 52,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: "rgba(26,26,46,0.12)",
-    backgroundColor: "#FFFFFF",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    marginBottom: 18,
-  },
-  googleBtnDisabled: {
-    opacity: 0.65,
-  },
-  googleMark: {
-    fontSize: 18,
-    fontFamily: "Outfit_700Bold",
-    letterSpacing: 0,
-    color: "#1a73e8",
-  },
-  googleBtnText: {
-    fontSize: 15,
-    fontFamily: "Outfit_600SemiBold",
-    letterSpacing: 0,
-    color: "#1a1a2e",
-  },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 18,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "rgba(49,47,184,0.12)",
-  },
-  dividerText: {
-    fontSize: 11,
-    fontFamily: "Outfit_600SemiBold",
-    letterSpacing: 0,
-    color: "#8A8FA8",
   },
   label: {
     fontSize: 11,

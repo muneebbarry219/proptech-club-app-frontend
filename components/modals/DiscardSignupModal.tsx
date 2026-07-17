@@ -77,7 +77,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 23,
-    fontWeight: "900",
+    fontFamily: "Outfit_700Bold",
+    letterSpacing: 0,
     color: "#121426",
     textAlign: "center",
     marginBottom: 8,
@@ -85,6 +86,8 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 14,
     lineHeight: 22,
+    fontFamily: "Outfit_400Regular",
+    letterSpacing: 0,
     color: "#5c6278",
     textAlign: "center",
   },
@@ -105,7 +108,8 @@ const styles = StyleSheet.create({
   },
   secondaryTxt: {
     fontSize: 13,
-    fontWeight: "700",
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
     color: "#312FB8",
   },
   primaryBtn: {
@@ -120,7 +124,8 @@ const styles = StyleSheet.create({
   },
   primaryTxt: {
     fontSize: 13,
-    fontWeight: "700",
+    fontFamily: "Outfit_600SemiBold",
+    letterSpacing: 0,
     color: "#fff",
   },
 });

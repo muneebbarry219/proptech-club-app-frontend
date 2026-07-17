@@ -390,7 +390,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { res, data } = await supabaseSignUp(email, password);
       if (!res.ok) {
-        return { error: data.error_description ?? data.msg ?? "Sign up failed" };
+        const backendError = data.error_description ?? data.msg ?? "Sign up failed";
+        return { error: /already|registered|exists/i.test(backendError)
+          ? "An account is already registered with this email address. Please sign in instead."
+          : backendError };
       }
       const session: StoredSession = {
         user: { id: data.user.id, email: data.user.email },
@@ -408,7 +411,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { res, data } = await supabaseSignIn(email, password);
       if (!res.ok) {
-        return { error: data.error_description ?? data.msg ?? "Sign in failed" };
+        const backendError = data.error_description ?? data.msg ?? "Sign in failed";
+        return { error: /invalid login credentials/i.test(backendError)
+          ? "Invalid login credentials."
+          : backendError };
       }
       const session: StoredSession = {
         user: { id: data.user.id, email: data.user.email },
@@ -446,7 +452,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!res.ok) {
         return {
           error: data.error ?? (res.status === 401
-            ? "For your security, sign out and sign in again before deleting your account."
+            ? "Your session is no longer valid. Please sign in again."
             : "Could not delete your account. Please try again."),
         };
       }

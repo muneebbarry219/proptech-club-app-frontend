@@ -2,7 +2,7 @@
   "expo": {
     "name": "PropTech Club",
     "slug": "proptech-club",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "proptechclub",
@@ -14,7 +14,8 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "pk.landtrack.proptech.club"
+      "bundleIdentifier": "pk.landtrack.proptech.club",
+      "buildNumber": "6"
     },
     "android": {
       "package": "pk.landtrack.proptech.club",

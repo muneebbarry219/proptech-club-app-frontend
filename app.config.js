@@ -9,19 +9,21 @@ module.exports = ({ config }) => ({
     bundleIdentifier: isDevelopmentBuild
       ? "pk.landtrack.proptech.club.dev"
       : config.ios?.bundleIdentifier,
+    infoPlist: {
+      ...config.ios?.infoPlist,
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     ...config.android,
     package: isDevelopmentBuild
       ? "pk.landtrack.proptech.club.dev"
       : config.android?.package,
-  },
-  extra: {
-    ...config.extra,
-    googleOAuth: {
-      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-      iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-      androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    },
+    blockedPermissions: [
+      ...(config.android?.blockedPermissions ?? []),
+      "android.permission.ACCESS_COARSE_LOCATION",
+      "android.permission.ACCESS_FINE_LOCATION",
+      "android.permission.ACCESS_BACKGROUND_LOCATION",
+    ],
   },
 });

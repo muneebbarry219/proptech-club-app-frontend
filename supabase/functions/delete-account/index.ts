@@ -12,16 +12,6 @@ function json(body: Record<string, unknown>, status: number) {
   });
 }
 
-function readJwtPayload(token: string): { auth_time?: number; iat?: number } | null {
-  try {
-    const encoded = token.split(".")[1];
-    const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(atob(normalized));
-  } catch {
-    return null;
-  }
-}
-
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -46,14 +36,6 @@ Deno.serve(async (request) => {
 
   if (userError || !user) {
     return json({ error: "Your session is no longer valid. Please sign in again." }, 401);
-  }
-
-  // Destructive account changes require authentication within the last 15 minutes.
-  const claims = readJwtPayload(token);
-  const authTime = claims?.auth_time ?? claims?.iat;
-  const now = Math.floor(Date.now() / 1000);
-  if (!authTime || now - authTime > 15 * 60) {
-    return json({ error: "For your security, sign out and sign in again before deleting your account." }, 401);
   }
 
   // Remove private/public objects that are not covered by database foreign keys.
