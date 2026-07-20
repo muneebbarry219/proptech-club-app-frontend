@@ -15,7 +15,10 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "pk.landtrack.proptech.club",
-      "buildNumber": "6"
+      "buildNumber": "6",
+      "infoPlist": {
+        "NSCameraUsageDescription": "PropTech Club uses your camera so you can take and upload a profile photo within the app."
+      }
     },
     "android": {
       "package": "pk.landtrack.proptech.club",
