@@ -12,6 +12,10 @@ module.exports = ({ config }) => ({
     infoPlist: {
       ...config.ios?.infoPlist,
       ITSAppUsesNonExemptEncryption: false,
+      NSCameraUsageDescription:
+        "PropTech Club uses your camera so you can take and upload a profile photo within the app.",
+      NSPhotoLibraryUsageDescription:
+        "PropTech Club uses your photo library so you can select and upload a profile photo within the app.",
     },
   },
   android: {

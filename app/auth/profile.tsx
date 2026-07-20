@@ -10,7 +10,6 @@ import {
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Keyboard,
   Platform,
   Pressable,
   LayoutAnimation,
@@ -553,7 +552,6 @@ export default function ProfileScreen() {
   const [signOutModalOpen, setSignOutModalOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const deletingAccountRef = useRef(false);
@@ -718,14 +716,12 @@ export default function ProfileScreen() {
   const closeDeleteModal = () => {
     if (isDeletingAccount) return;
     setDeleteModalOpen(false);
-    setDeleteConfirmation("");
     setDeleteError("");
   };
 
   const confirmDeleteAccount = async () => {
-    if (deleteConfirmation.trim().toUpperCase() !== "DELETE") return;
+    if (deletingAccountRef.current) return;
 
-    Keyboard.dismiss();
     deletingAccountRef.current = true;
     setIsDeletingAccount(true);
     setDeleteError("");
@@ -738,7 +734,21 @@ export default function ProfileScreen() {
       return;
     }
 
-    router.replace("/home");
+    Alert.alert(
+      "Account Deleted",
+      "Your account has been permanently deleted.",
+      [
+        {
+          text: "OK",
+          onPress: () => {
+            setDeleteModalOpen(false);
+            setIsDeletingAccount(false);
+            router.replace("/auth/sign-in");
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   };
 
   const openAvatarOptions = () => setCameraSheetOpen(true);
@@ -1122,14 +1132,20 @@ export default function ProfileScreen() {
           <Text style={s.signOutTxt}>Sign Out</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => setDeleteModalOpen(true)}
-          activeOpacity={0.85}
-          style={s.deleteAccountBtn}
-        >
-          <Trash2 size={15} color="#B42318" strokeWidth={2.2} />
-          <Text style={s.deleteAccountBtnText}>Delete Account</Text>
-        </TouchableOpacity>
+        <View style={s.accountSettingsSection}>
+          <Text style={s.accountSettingsTitle}>Account Settings</Text>
+          <Text style={s.accountSettingsDescription}>
+            Permanently delete your account and associated data.
+          </Text>
+          <TouchableOpacity
+            onPress={() => setDeleteModalOpen(true)}
+            activeOpacity={0.85}
+            style={s.deleteAccountBtn}
+          >
+            <Trash2 size={18} color="#B42318" strokeWidth={2.2} />
+            <Text style={s.deleteAccountBtnText}>Delete Account</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <BottomNav />
@@ -1176,70 +1192,46 @@ export default function ProfileScreen() {
         animationType="fade"
         onRequestClose={closeDeleteModal}
       >
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-          <Pressable style={s.signOutBackdrop} onPress={closeDeleteModal}>
-            <Pressable style={s.deleteModalCard} onPress={() => { }}>
-              <View style={s.deleteModalHeader}>
-                <View style={s.deleteBadge}>
-                  <Trash2 size={22} color="#B42318" strokeWidth={2.1} />
-                </View>
-                <Text style={s.signOutTitle}>Delete Account?</Text>
-                <Text style={s.signOutSubtitle}>
-                  This permanently deletes your profile, membership, messages, connections, and sign-in access.
-
-                  This action cannot be undone!
-                </Text>
+        <Pressable style={s.signOutBackdrop} onPress={closeDeleteModal}>
+          <Pressable style={s.deleteModalCard} onPress={() => { }}>
+            <View style={s.deleteModalHeader}>
+              <View style={s.deleteBadge}>
+                <Trash2 size={22} color="#B42318" strokeWidth={2.1} />
               </View>
+              <Text style={s.signOutTitle}>Delete Account?</Text>
+              <Text style={s.signOutSubtitle}>
+                Deleting your account will permanently remove your account and associated data. This action cannot be undone.
+              </Text>
+            </View>
 
-              <View style={s.deleteModalBody}>
-                <Text style={s.deleteConfirmLabel}>Type DELETE to confirm</Text>
-                <TextInput
-                  value={deleteConfirmation}
-                  onChangeText={(value) => {
-                    setDeleteConfirmation(value.toUpperCase());
-                    setDeleteError("");
-                  }}
-                  editable={!isDeletingAccount}
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                  maxLength={6}
-                  returnKeyType="done"
-                  onSubmitEditing={confirmDeleteAccount}
-                  placeholder="DELETE"
-                  placeholderTextColor="#A6A9B5"
-                  style={s.deleteConfirmInput}
-                />
-                {!!deleteError && <Text style={s.deleteErrorText}>{deleteError}</Text>}
+            <View style={s.deleteModalBody}>
+              {!!deleteError && <Text style={s.deleteErrorText}>{deleteError}</Text>}
 
-                <View style={s.signOutActions}>
-                  <TouchableOpacity
-                    style={s.signOutCancelBtn}
-                    activeOpacity={0.85}
-                    disabled={isDeletingAccount}
-                    onPress={closeDeleteModal}
-                  >
-                    <Text style={s.signOutCancelTxt}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      s.signOutConfirmBtn,
-                      (deleteConfirmation.trim().toUpperCase() !== "DELETE" || isDeletingAccount) && s.deleteConfirmDisabled,
-                    ]}
-                    activeOpacity={0.85}
-                    disabled={deleteConfirmation.trim().toUpperCase() !== "DELETE" || isDeletingAccount}
-                    onPress={confirmDeleteAccount}
-                  >
-                    {isDeletingAccount ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <Text style={s.signOutConfirmTxt}>Delete Forever</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
+              <View style={s.signOutActions}>
+                <TouchableOpacity
+                  style={s.signOutCancelBtn}
+                  activeOpacity={0.85}
+                  disabled={isDeletingAccount}
+                  onPress={closeDeleteModal}
+                >
+                  <Text style={s.signOutCancelTxt}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={s.signOutConfirmBtn}
+                  activeOpacity={0.85}
+                  disabled={isDeletingAccount}
+                  onPress={confirmDeleteAccount}
+                >
+                  {isDeletingAccount ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={s.signOutConfirmTxt}>Delete Account</Text>
+                  )}
+                </TouchableOpacity>
               </View>
-            </Pressable>
+            </View>
           </Pressable>
-        </KeyboardAvoidingView>
+        </Pressable>
       </Modal>
 
       <Modal
@@ -1570,8 +1562,32 @@ const s = StyleSheet.create({
     backgroundColor: "#FFF3F3",
   },
   signOutTxt: { fontSize: 15, fontFamily: "Outfit_600SemiBold", letterSpacing: 0, color: "#dc2626" },
-  deleteAccountBtn: { marginTop: 10, flexDirection: "row", gap: 7, alignItems: "center", alignSelf: "center", paddingVertical: 10, paddingHorizontal: 12 },
-  deleteAccountBtnText: { fontSize: 13, fontFamily: "Outfit_600SemiBold", color: "#B42318", letterSpacing: 0 },
+  accountSettingsSection: {
+    marginHorizontal: 16,
+    marginTop: 18,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(180,35,24,0.16)",
+    backgroundColor: "#FFF9F8",
+  },
+  accountSettingsTitle: { fontSize: 16, fontFamily: "Outfit_600SemiBold", color: "#121426", letterSpacing: 0 },
+  accountSettingsDescription: { marginTop: 5, fontSize: 13, lineHeight: 18, fontFamily: "Outfit_400Regular", color: "#5C6278", letterSpacing: 0 },
+  deleteAccountBtn: {
+    marginTop: 14,
+    minHeight: 48,
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#B42318",
+    backgroundColor: "#FFFFFF",
+  },
+  deleteAccountBtnText: { fontSize: 15, fontFamily: "Outfit_600SemiBold", color: "#B42318", letterSpacing: 0 },
   cameraBackdrop: { flex: 1, backgroundColor: "rgba(15,18,40,0.56)", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
   cameraModalCard: {
     width: "100%",
@@ -1653,10 +1669,7 @@ const s = StyleSheet.create({
   deleteModalHeader: { paddingTop: 28, paddingBottom: 18, paddingHorizontal: 20, alignItems: "center" },
   deleteBadge: { width: 56, height: 56, borderRadius: 18, backgroundColor: "#FEE4E2", alignItems: "center", justifyContent: "center", marginBottom: 12 },
   deleteModalBody: { paddingHorizontal: 16, paddingBottom: 6 },
-  deleteConfirmLabel: { marginBottom: 7, fontSize: 12, fontFamily: "Outfit_600SemiBold", color: "#5C6278", letterSpacing: 0 },
-  deleteConfirmInput: { height: 48, borderRadius: 14, borderWidth: 1.5, borderColor: "rgba(180,35,24,0.25)", backgroundColor: "#FFF9F8", paddingHorizontal: 14, fontSize: 15, fontFamily: "Outfit_600SemiBold", color: "#7A271A", letterSpacing: 1 },
   deleteErrorText: { marginTop: 8, fontSize: 12, lineHeight: 17, fontFamily: "Outfit_400Regular", color: "#B42318", letterSpacing: 0 },
-  deleteConfirmDisabled: { opacity: 0.45 },
   signOutHeader: { paddingTop: 28, paddingBottom: 20, paddingHorizontal: 18, backgroundColor: "#FFFFFF", alignItems: "center" },
   signOutBadge: {
     width: 56,
