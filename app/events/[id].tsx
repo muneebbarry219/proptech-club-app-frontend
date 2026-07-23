@@ -2,15 +2,18 @@ import { useState, useEffect, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Alert, Linking, Modal, Pressable,
-  TextInput, KeyboardAvoidingView, Platform, ImageBackground,
+  TextInput, KeyboardAvoidingView, Platform, Image, ImageBackground,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, Download, Check, Clock3, X, CalendarDays, MapPin } from "lucide-react-native";
+import { ArrowLeft, Download, Check, Clock3, X, CalendarDays, MapPin, Pencil } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../../context/AuthContext";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../../constants/supabase";
-import { applyCuratedEventOverride, getEventCoverSource, getPrimaryUpcomingEventId } from "../../utils/eventOverrides";
+import { getEventCoverSource } from "../../utils/eventOverrides";
+import AuthRequiredModal from "../../components/modals/AuthRequiredModal";
+import EventRegistrationModal, { type RegistrationQuestion } from "../../components/modals/EventRegistrationModal";
+import { getAvatarUri } from "../../utils/getAvatarUri";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -25,6 +28,7 @@ interface EventDetail {
   event_type: string;
   registration_type: "open" | "exclusive";
   registration_url: string | null;
+  registration_deadline: string | null;
   report_url: string | null;
   whatsapp_link: string | null;
   website_url: string | null;
@@ -69,7 +73,7 @@ interface Attendee {
   id: string;
   user_id: string;
   status: string;
-  profiles: { full_name: string; role: string } | null;
+  profiles: { full_name: string; role: string; avatar_url: string | null; updated_at?: string | null } | null;
 }
 
 // ── Constants ──────────────────────────────────────────────────
@@ -337,6 +341,7 @@ export default function EventDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, profile, apiFetch, isAuthenticated } = useAuth();
+  const isAdmin = Platform.OS === "android" && isAuthenticated && user?.id === "59a93ce0-0570-4f71-897a-162b72decf7e";
 
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
@@ -347,36 +352,44 @@ export default function EventDetailScreen() {
   const [userStatus, setUserStatus] = useState<"confirmed" | "pending" | null>(null);
   const [loading, setLoading] = useState(true);
   const [showJoin, setShowJoin] = useState(false);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [showRegistration, setShowRegistration] = useState(false);
+  const [registrationQuestions, setRegistrationQuestions] = useState<RegistrationQuestion[]>([]);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
   const [joining, setJoining] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [evRes, spkRes, spsRes, agRes, attRes, upcomingRes] = await Promise.all([
+      const [evRes, spkRes, spsRes, agRes, attRes, questionsRes] = await Promise.all([
         publicFetch(`/events?id=eq.${id}&select=*`),
         publicFetch(`/event_speakers?event_id=eq.${id}&select=*&order=is_keynote.desc,sort_order.asc`),
         publicFetch(`/event_sponsors?event_id=eq.${id}&select=*&order=sort_order.asc`),
         publicFetch(`/event_agenda?event_id=eq.${id}&select=*&order=day_number.asc,sort_order.asc`),
-        publicFetch(`/event_attendees?event_id=eq.${id}&status=eq.confirmed&select=id,user_id,status,profiles!user_id(full_name,role)&limit=20`),
-        publicFetch(`/events?is_published=eq.true&is_past=eq.false&order=event_date.asc&select=id,event_date,is_past`),
+        publicFetch(`/event_attendees?event_id=eq.${id}&status=eq.confirmed&select=id,user_id,status,profiles!user_id(full_name,role,avatar_url,updated_at)&limit=20`),
+        publicFetch(`/event_registration_questions?event_id=eq.${id}&select=id,question,is_required,question_type,options&order=sort_order.asc`),
       ]);
 
-      const curatedUpcomingId = upcomingRes.ok ? getPrimaryUpcomingEventId(await upcomingRes.json()) : null;
       let nextEvent: EventDetail | null = null;
       if (evRes.ok) {
         const d = await evRes.json();
         if (d[0]) {
-          nextEvent = applyCuratedEventOverride(d[0], curatedUpcomingId);
+          nextEvent = d[0];
           setEvent(nextEvent);
         }
       }
       if (spkRes.ok) {
         const nextSpeakers = await spkRes.json();
-        setSpeakers(nextEvent?.member_only ? [] : nextSpeakers);
+        setSpeakers(nextSpeakers);
       }
       if (spsRes.ok) {
         const nextSponsors = await spsRes.json();
-        setSponsors(nextEvent?.member_only ? [] : nextSponsors);
+        setSponsors(nextSponsors);
       }
       if (agRes.ok) {
         const nextAgenda = await agRes.json();
@@ -386,6 +399,7 @@ export default function EventDetailScreen() {
         const d = await attRes.json();
         setAttendees(d);
       }
+      if (questionsRes.ok) setRegistrationQuestions(await questionsRes.json());
 
       // Get total count
       const cRes = await fetch(
@@ -440,6 +454,8 @@ export default function EventDetailScreen() {
               profiles: {
                 full_name: profile.full_name,
                 role: profile.role ?? "real_estate_developer",
+                avatar_url: profile.avatar_url,
+                updated_at: profile.updated_at,
               },
             },
             ...current,
@@ -521,17 +537,27 @@ export default function EventDetailScreen() {
 
   const isPast = event.is_past;
   const isMemberOnly = !!event.member_only;
+  const registrationRequired = event.registration_type === "exclusive";
+  const registrationClosed = !!event.registration_deadline && new Date(event.registration_deadline).getTime() <= now;
   const coverSource = getEventCoverSource(event);
 
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
       {/* Back header */}
       <View style={s.backHdr}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} activeOpacity={0.8}>
+        <TouchableOpacity onPress={() => router.replace("/events" as any)} style={s.backBtn} activeOpacity={0.8}>
           <ArrowLeft size={18} color="#312FB8" strokeWidth={2.4} />
         </TouchableOpacity>
         <Text style={s.backTitle} numberOfLines={1}>{event.title}</Text>
-        <View style={{ width: 40 }} />
+        {isAdmin ? (
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: "/events/create", params: { id } } as any)}
+            style={s.backBtn}
+            activeOpacity={0.8}
+          >
+            <Pencil size={17} color="#312FB8" strokeWidth={2.2} />
+          </TouchableOpacity>
+        ) : <View style={{ width: 40 }} />}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
@@ -602,9 +628,22 @@ export default function EventDetailScreen() {
         )}
 
         {/* ── Registration CTA (upcoming events) ── */}
-        {!isPast && (
+        {!isPast && registrationRequired && (
           <View style={s.ctaWrap}>
-            {userStatus === "confirmed" ? (
+            {event.registration_deadline && (
+              <View style={[s.deadlineCard, registrationClosed && s.deadlineCardClosed]}>
+                <Clock3 size={16} color={registrationClosed ? "#B42318" : "#633806"} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.deadlineTitle, registrationClosed && s.deadlineTitleClosed]}>
+                    {registrationClosed ? "Registrations are closed" : "Registration closes"}
+                  </Text>
+                  <Text style={s.deadlineText}>
+                    {new Date(event.registration_deadline).toLocaleString("en-PK", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" })}
+                  </Text>
+                </View>
+              </View>
+            )}
+            {registrationClosed && !userStatus ? null : userStatus === "confirmed" ? (
               <View style={s.ctaRow}>
                 <View style={s.attendingCard}>
                   <Check size={16} color="#085041" strokeWidth={2.5} />
@@ -619,20 +658,22 @@ export default function EventDetailScreen() {
                 <Clock3 size={16} color="#633806" strokeWidth={2} />
                 <Text style={s.pendingTxt}>Request pending review</Text>
               </View>
-            ) : (
+            ) : isMemberOnly && (!isAuthenticated || !profile) ? null : (
               <TouchableOpacity
                 onPress={() => {
+                  if (!isAuthenticated) {
+                    setShowAuthPrompt(true);
+                    return;
+                  }
                   if (isMemberOnly) {
                     if (event.registration_url) {
                       Linking.openURL(event.registration_url);
                       return;
                     }
-                    if (!isAuthenticated) { router.push("/auth/sign-in" as any); return; }
                     handleMemberJoin();
                     return;
                   }
-                  if (!isAuthenticated) { router.push("/auth/sign-in" as any); return; }
-                  setShowJoin(true);
+                  setShowRegistration(true);
                 }}
                 style={s.joinBtn}
                 activeOpacity={0.85}
@@ -647,7 +688,7 @@ export default function EventDetailScreen() {
                     <ActivityIndicator color="#FFF" />
                   ) : (
                     <Text style={s.joinBtnTxt}>
-                      {isMemberOnly ? "Join The Event" : event.registration_type === "open" ? "Join The Event" : "Request to Join →"}
+                      Register now
                     </Text>
                   )}
                 </LinearGradient>
@@ -664,7 +705,7 @@ export default function EventDetailScreen() {
               </View>
               <Text style={s.noticeTitle}>Private, member-led gathering</Text>
               <Text style={s.noticeText}>
-                Only registered PropTech Club members can join from the app.
+                Everyone can view the event details. Registration is available only to signed-in PropTech Club members.
               </Text>
             </View>
           </View>
@@ -733,9 +774,7 @@ export default function EventDetailScreen() {
                         <Text style={s.keynoteTxt}>KEYNOTE</Text>
                       </View>
                     )}
-                    <View style={[s.speakerAv, { backgroundColor: sp.is_keynote ? "#854F0B" : color }]}>
-                      <Text style={s.speakerAvTxt}>{initials(sp.name)}</Text>
-                    </View>
+                    {sp.photo_url ? <Image source={{ uri: sp.photo_url }} style={s.speakerPhoto} /> : <View style={[s.speakerAv, { backgroundColor: sp.is_keynote ? "#854F0B" : color }]}><Text style={s.speakerAvTxt}>{initials(sp.name)}</Text></View>}
                     <Text style={s.speakerName} numberOfLines={2}>{sp.name}</Text>
                     {sp.company && <Text style={s.speakerCompany} numberOfLines={1}>{sp.company}</Text>}
                     {sp.topic && <Text style={s.speakerTopic} numberOfLines={2}>{sp.topic}</Text>}
@@ -752,12 +791,11 @@ export default function EventDetailScreen() {
         {/* ── Sponsors ── */}
         {sponsors.length > 0 && (
           <View style={s.section}>
-            <SectionTitle title={`Sponsors (${sponsors.length})`} />
+            <SectionTitle title="Sponsors & Partners" />
             {Object.entries(sponsorsByTier).map(([tier, items]) => {
               const colors = SPONSOR_TIER_COLORS[tier] ?? { bg: "#EEEDFE", text: "#3C3489" };
               return (
                 <View key={tier} style={s.sponsorTier}>
-                  <Text style={s.sponsorTierLabel}>{tier.toUpperCase()} SPONSOR{items.length > 1 ? "S" : ""}</Text>
                   <View style={s.sponsorRow}>
                     {items.map(sp => (
                       <TouchableOpacity
@@ -766,7 +804,8 @@ export default function EventDetailScreen() {
                         activeOpacity={sp.website_url ? 0.85 : 1}
                         style={[s.sponsorChip, { backgroundColor: colors.bg }]}
                       >
-                        <Text style={[s.sponsorChipTxt, { color: colors.text }]}>{sp.name}</Text>
+                        {sp.logo_url && <Image source={{ uri: sp.logo_url }} style={s.sponsorLogo} resizeMode="contain" />}
+                        <Text style={[s.sponsorChipTxt, { color: colors.text }]} numberOfLines={2}>{sp.name}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -785,13 +824,8 @@ export default function EventDetailScreen() {
                 {attendees.slice(0, 6).map((a, i) => {
                   const color = ROLE_COLORS[a.profiles?.role ?? "real_estate_developer"] ?? "#312FB8";
                   return (
-                    <View
-                      key={a.id}
-                      style={[s.attAvatar, { backgroundColor: color, marginLeft: i > 0 ? -8 : 0, zIndex: 10 - i }]}
-                    >
-                      <Text style={s.attAvatarTxt}>
-                        {a.profiles ? initials(a.profiles.full_name) : "?"}
-                      </Text>
+                    <View key={a.id} style={[s.attAvatar, { backgroundColor: color, marginLeft: i > 0 ? -8 : 0, zIndex: 10 - i }]}>
+                      {a.profiles?.avatar_url ? <Image source={{ uri: getAvatarUri(a.profiles.avatar_url, a.profiles.updated_at)! }} style={s.attAvatarImage} /> : <Text style={s.attAvatarTxt}>{a.profiles ? initials(a.profiles.full_name) : "?"}</Text>}
                     </View>
                   );
                 })}
@@ -801,16 +835,13 @@ export default function EventDetailScreen() {
                   </View>
                 )}
               </View>
-              <Text style={s.attNames}>
-                {attendees.slice(0, 3).map(a => a.profiles?.full_name?.split(" ")[0]).filter(Boolean).join(", ")}
-                {attCount > 3 ? ` and ${attCount - 3} others are attending` : " are attending"}
-              </Text>
+              <Text style={s.attNames}>{attCount} member(s) attending</Text>
             </View>
           </View>
         )}
 
         {/* ── Speak / Sponsor CTA ── */}
-        {!isPast && !userStatus && !isMemberOnly && (
+        {false && !isPast && !userStatus && !isMemberOnly && (
           <View style={s.section}>
             <SectionTitle title="Get Involved" />
             <View style={s.involvedRow}>
@@ -856,6 +887,8 @@ export default function EventDetailScreen() {
           registrationType={event.registration_type}
         />
       )}
+      <AuthRequiredModal visible={showAuthPrompt} onClose={() => setShowAuthPrompt(false)} />
+      <EventRegistrationModal visible={showRegistration} eventId={event.id} eventTitle={event.title} questions={registrationQuestions} apiFetch={apiFetch} onClose={() => setShowRegistration(false)} onSubmitted={() => { setShowRegistration(false); handleJoined("confirmed"); }} />
     </View>
   );
 }
@@ -889,6 +922,10 @@ const s = StyleSheet.create({
   reportBarBtn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#EF9F27", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
   reportBarBtnTxt: { fontSize: 12, fontFamily: "Outfit_700Bold", color: "#412402" },
   ctaWrap: { paddingHorizontal: 16, marginTop: 10, marginBottom: 18 },
+  deadlineCard: { flexDirection: "row", alignItems: "center", gap: 10, padding: 13, borderRadius: 14, backgroundColor: "#FFF7E8", borderWidth: 1, borderColor: "rgba(239,159,39,0.28)", marginBottom: 10 },
+  deadlineCardClosed: { backgroundColor: "#FEF3F2", borderColor: "#FDA29B" },
+  deadlineTitle: { color: "#633806", fontSize: 13, fontFamily: "Outfit_700Bold" },
+  deadlineTitleClosed: { color: "#B42318" }, deadlineText: { color: "#737386", fontSize: 12, marginTop: 2 },
   ctaRow: { flexDirection: "row", gap: 10 },
   joinBtn: { borderRadius: 14, overflow: "hidden" },
   joinBtnGrad: { paddingVertical: 14, alignItems: "center" },
@@ -921,6 +958,7 @@ const s = StyleSheet.create({
   keynoteBadge: { backgroundColor: "#FAEEDA", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, marginBottom: 6 },
   keynoteTxt: { fontSize: 8, fontFamily: "Outfit_700Bold", color: "#633806" },
   speakerAv: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  speakerPhoto: { width: 52, height: 52, borderRadius: 16, marginBottom: 8 },
   speakerAvTxt: { color: "#FFF", fontSize: 14, fontFamily: "Outfit_700Bold" },
   speakerName: { fontSize: 11, fontFamily: "Outfit_700Bold", color: "#1A1A2E", textAlign: "center", marginBottom: 2 },
   speakerCompany: { fontSize: 10, color: "#888", textAlign: "center", marginBottom: 3, fontFamily: "Outfit_400Regular" },
@@ -929,11 +967,13 @@ const s = StyleSheet.create({
   sponsorTier: { marginBottom: 12 },
   sponsorTierLabel: { fontSize: 10, fontFamily: "Outfit_700Bold", color: "#AAA", letterSpacing: 1, marginBottom: 6 },
   sponsorRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  sponsorChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  sponsorChipTxt: { fontSize: 13, fontFamily: "Outfit_700Bold" },
+  sponsorChip: { width: "31.5%", height: 105, paddingHorizontal: 2, paddingVertical: 2, borderRadius: 10, alignItems: "center", justifyContent: "center", gap: 2 },
+  sponsorLogo: { width: "92%", height: 64 },
+  sponsorChipTxt: { fontSize: 12, lineHeight: 15, fontFamily: "Outfit_700Bold", textAlign: "center" },
   attendeesCard: { backgroundColor: "#FFF", borderRadius: 14, borderWidth: 0.5, borderColor: "rgba(49,47,184,0.08)", padding: 14 },
   attAvatarRow: { flexDirection: "row", marginBottom: 10 },
   attAvatar: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFF" },
+  attAvatarImage: { width: "100%", height: "100%", borderRadius: 8 },
   attAvatarTxt: { color: "#FFF", fontSize: 10, fontFamily: "Outfit_700Bold" },
   attNames: { fontSize: 12, color: "#555", lineHeight: 18, fontFamily: "Outfit_400Regular" },
   involvedRow: { flexDirection: "row", gap: 10 },

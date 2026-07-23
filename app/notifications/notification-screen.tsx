@@ -96,6 +96,7 @@ interface EventNotificationRow {
   cover_image?: string | null;
   registration_type: "open" | "exclusive";
   member_only?: boolean | null;
+  created_at: string;
 }
 
 interface ArticleNotificationRow {
@@ -492,6 +493,10 @@ export default function NotificationScreen() {
     }
 
     try {
+      const eventsRes = await apiFetch(
+        `/events?is_published=eq.true&order=created_at.desc&limit=30&select=id,title,event_date,cover_image,registration_type,member_only,created_at`
+      );
+      const events: EventNotificationRow[] = eventsRes.ok ? await eventsRes.json() : [];
       let attendeesRes = await apiFetch(
         `/event_attendees?user_id=eq.${user.id}&status=eq.confirmed&select=id,event_id,user_id,status,created_at,updated_at&order=updated_at.desc`
       );
@@ -502,36 +507,40 @@ export default function NotificationScreen() {
         );
       }
 
-      if (!attendeesRes.ok) {
-        setEventNotifications([]);
-        return;
-      }
-
-      const attendees: EventAttendeeRow[] = await attendeesRes.json();
-      if (!attendees.length) {
-        setEventNotifications([]);
-        return;
-      }
-
-      const eventIds = Array.from(new Set(attendees.map((attendee) => attendee.event_id).filter(Boolean)));
-      if (!eventIds.length) {
-        setEventNotifications([]);
-        return;
-      }
-
-      const eventsRes = await apiFetch(
-        `/events?id=in.(${eventIds.join(",")})&select=id,title,event_date,cover_image,registration_type,member_only`
-      );
-      const events: EventNotificationRow[] = eventsRes.ok ? await eventsRes.json() : [];
+      const attendees: EventAttendeeRow[] = attendeesRes.ok ? await attendeesRes.json() : [];
       const eventsById = new Map(events.map((event) => [event.id, event]));
       const now = Date.now();
+
+      const globalNotifications: NotificationItem[] = events.flatMap((event) => {
+        const eventName = event.title || "New event";
+        const eventTime = sortTime(event.event_date);
+        const items: NotificationItem[] = [{
+          id: `event-published-${event.id}`,
+          readKey: `event-published-${event.id}`,
+          title: NOTIFICATION_LABELS.eventPublished.title,
+          body: NOTIFICATION_LABELS.eventPublished.body(eventName),
+          time: timeAgo(event.created_at), sortAt: sortTime(event.created_at), unread: true,
+          actionRoute: `/events/${event.id}`, actorName: eventName, actorAvatarUrl: event.cover_image ?? null,
+          boldName: eventName, boldNames: [eventName], showEventBadge: true, Icon: CalendarDays,
+        }];
+        if (eventTime > now && eventTime - now <= EVENT_REMINDER_WINDOW_MS) {
+          const reminderAt = new Date(eventTime - EVENT_REMINDER_WINDOW_MS).toISOString();
+          items.push({
+            id: `event-reminder-${event.id}`, readKey: `event-reminder-${event.id}-${event.event_date}`,
+            title: NOTIFICATION_LABELS.eventTomorrow.title, body: NOTIFICATION_LABELS.eventTomorrow.body(eventName),
+            time: timeAgo(reminderAt), sortAt: sortTime(reminderAt), unread: true,
+            actionRoute: `/events/${event.id}`, actorName: eventName, actorAvatarUrl: event.cover_image ?? null,
+            boldName: eventName, boldNames: [eventName], showEventBadge: true, Icon: CalendarDays,
+          });
+        }
+        return items;
+      });
 
       const nextNotifications = attendees.flatMap((attendee) => {
         const event = eventsById.get(attendee.event_id);
         if (!event) return [];
 
         const eventName = event.title || "This event";
-        const eventTime = sortTime(event.event_date);
         const registrationTime = attendee.updated_at ?? attendee.created_at;
         const isFreeRegistration = event.registration_type === "open" && !event.member_only;
         const registrationNotification: NotificationItem = {
@@ -555,32 +564,10 @@ export default function NotificationScreen() {
           Icon: CalendarDays,
         };
 
-        const notifications = [registrationNotification];
-        const isReminderDue = eventTime > now && eventTime - now <= EVENT_REMINDER_WINDOW_MS;
-        if (isReminderDue) {
-          const reminderAt = new Date(eventTime - EVENT_REMINDER_WINDOW_MS).toISOString();
-          notifications.push({
-            id: `event-reminder-${event.id}`,
-            readKey: `event-reminder-${event.id}-${event.event_date}`,
-            title: NOTIFICATION_LABELS.eventTomorrow.title,
-            body: NOTIFICATION_LABELS.eventTomorrow.body(eventName),
-            time: timeAgo(reminderAt),
-            sortAt: sortTime(reminderAt),
-            unread: true,
-            actionRoute: `/events/${event.id}`,
-            actorName: eventName,
-            actorAvatarUrl: event.cover_image ?? null,
-            boldName: eventName,
-            boldNames: [eventName],
-            showEventBadge: true,
-            Icon: CalendarDays,
-          });
-        }
-
-        return notifications;
+        return [registrationNotification];
       });
 
-      setEventNotifications(nextNotifications);
+      setEventNotifications([...globalNotifications, ...nextNotifications]);
     } catch (error) {
       console.warn("[Notifications] event notifications load error", error);
       setEventNotifications([]);

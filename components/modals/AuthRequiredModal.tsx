@@ -10,9 +10,9 @@ interface AuthRequiredModalProps {
 
 export default function AuthRequiredModal({ visible, onClose }: AuthRequiredModalProps) {
   const router = useRouter();
-  const handleContinue = () => {
+  const navigateTo = (route: "/auth/sign-in" | "/auth/sign-up") => {
     onClose();
-    router.push("/auth/sign-in" as any);
+    router.push(route as any);
   };
 
   return (
@@ -26,7 +26,7 @@ export default function AuthRequiredModal({ visible, onClose }: AuthRequiredModa
           <Text style={styles.modalText}>Create an account or sign in first to access this feature.</Text>
           <TouchableOpacity
             activeOpacity={0.88}
-            onPress={handleContinue}
+            onPress={() => navigateTo("/auth/sign-in")}
             style={styles.modalButtonWrap}
           >
             <LinearGradient
@@ -35,8 +35,15 @@ export default function AuthRequiredModal({ visible, onClose }: AuthRequiredModa
               end={{ x: 1, y: 1 }}
               style={styles.modalButton}
             >
-              <Text style={styles.modalButtonText}>Continue to Sign In</Text>
+              <Text style={styles.modalButtonText}>Sign In</Text>
             </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => navigateTo("/auth/sign-up")}
+            style={styles.signUpButton}
+          >
+            <Text style={styles.signUpButtonText}>Create Account</Text>
           </TouchableOpacity>
         </Pressable>
       </Pressable>
@@ -110,5 +117,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Outfit_700Bold",
     letterSpacing: 0,
+  },
+  signUpButton: {
+    marginTop: 10,
+    paddingVertical: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(49,47,184,0.22)",
+  },
+  signUpButtonText: {
+    color: "#312FB8",
+    fontSize: 14,
+    fontFamily: "Outfit_700Bold",
   },
 });

@@ -118,7 +118,7 @@ export default function HomeScreen() {
   }, []);
 
   const handleProtectedPress = (route: string) => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && route !== "/events") {
       setShowAuthPrompt(true);
       return;
     }

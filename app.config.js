@@ -1,8 +1,23 @@
-const isDevelopmentBuild = process.env.EAS_BUILD_PROFILE === "development";
+const isDevelopmentBuild =
+  process.env.APP_VARIANT === "development" ||
+  process.env.EAS_BUILD_PROFILE === "development";
 
 module.exports = ({ config }) => ({
   ...config,
-  name: isDevelopmentBuild ? "PropTech Club Dev" : config.name,
+  plugins: [
+    ...(config.plugins ?? []),
+    "@react-native-community/datetimepicker",
+    [
+      "expo-image-picker",
+      {
+        cameraPermission:
+          "PropTech Club uses your camera so you can take and upload a profile photo within the app.",
+        photosPermission:
+          "PropTech Club uses your photos so you can choose and upload a profile photo within the app.",
+      },
+    ],
+  ],
+  name: config.name,
   scheme: isDevelopmentBuild ? "proptechclubdev" : config.scheme,
   ios: {
     ...config.ios,

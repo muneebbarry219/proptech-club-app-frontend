@@ -73,6 +73,26 @@ export async function uploadEventCover(
   return uploadFileToSupabase(localUri, mimeType, "event-gallery", `${eventId}/cover.${ext}`, accessToken);
 }
 
+export async function uploadEventSpeakerImage(
+  localUri: string,
+  eventId: string,
+  speakerId: string,
+  accessToken: string
+): Promise<string | null> {
+  const { ext, mimeType } = getMime(localUri);
+  return uploadFileToSupabase(localUri, mimeType, "event-gallery", `${eventId}/speakers/${speakerId}.${ext}`, accessToken);
+}
+
+export async function uploadEventSponsorLogo(
+  localUri: string,
+  eventId: string,
+  sponsorId: string,
+  accessToken: string
+): Promise<string | null> {
+  const { ext, mimeType } = getMime(localUri);
+  return uploadFileToSupabase(localUri, mimeType, "event-gallery", `${eventId}/sponsors/${sponsorId}.${ext}`, accessToken);
+}
+
 export async function uploadEventGalleryImage(
   localUri: string,
   eventId: string,

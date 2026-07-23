@@ -38,6 +38,10 @@ export const NOTIFICATION_LABELS = {
     title: "You're Registered! ✓",
     body: (eventName: string) => `You successfully registered for ${eventName}`,
   },
+  eventPublished: {
+    title: "New event published",
+    body: (eventName: string) => `${eventName} is now open to view`,
+  },
   eventRegistrationApproved: {
     title: "Registration Approved ✓",
     body: (eventName: string) => `${eventName} approved your registration`,
