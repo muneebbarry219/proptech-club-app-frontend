@@ -568,22 +568,15 @@ export default function EventDetailScreen() {
           style={s.hero}
           imageStyle={s.heroImage}
         >
-          <View style={s.heroTopBadges}>
-            <View style={s.heroBadges}>
-              <View style={s.typePill}>
-                <Text style={s.typePillTxt}>{event.member_only ? "PROPTECH CLUB" : event.event_type.toUpperCase()}</Text>
-              </View>
-              {isPast ? (
+          {isPast && (
+            <View style={s.heroTopBadges}>
+              <View style={s.heroBadges}>
                 <View style={s.pastPill}>
                   <Text style={s.pastPillTxt}>POST EVENT</Text>
                 </View>
-              ) : (
-                <View style={[s.regPill, event.registration_type === "exclusive" && s.regPillExcl]}>
-                  <Text style={s.regPillTxt}>{event.registration_type === "open" ? "OPEN" : "EXCLUSIVE"}</Text>
-                </View>
-              )}
+              </View>
             </View>
-          </View>
+          )}
           <LinearGradient
             colors={isPast ? ["rgba(44,44,42,0.06)", "rgba(44,44,42,0.34)", "rgba(68,68,65,0.9)"] : ["rgba(27,25,106,0.04)", "rgba(27,25,106,0.24)", "rgba(49,47,184,0.84)"]}
             locations={[0, 0.45, 1]}

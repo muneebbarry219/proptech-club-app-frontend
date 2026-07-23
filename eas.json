@@ -30,6 +30,18 @@
         "buildType": "app-bundle"
       },
       "autoIncrement": false
+    },
+    "production-apk": {
+      "extends": "production",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "ios-production-1-0-2": {
+      "extends": "production",
+      "env": {
+        "IOS_RELEASE_VERSION": "1.0.2"
+      }
     }
   },
   "submit": {

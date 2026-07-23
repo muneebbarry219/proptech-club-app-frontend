@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { ArrowRight } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext";
 import { storage } from "../utils/storage";
 
@@ -49,6 +50,7 @@ export default function SplashScreen() {
   const primaryTagline = "Grow Your Network,";
   const secondaryTagline = "Grow Your Networth";
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { isLoading, isAuthenticated, profile } = useAuth();
   const [canEnter, setCanEnter] = useState(false);
   const [progressTrackWidth, setProgressTrackWidth] = useState(0);
@@ -195,7 +197,15 @@ export default function SplashScreen() {
         />
       ))}
 
-      <View style={s.content}>
+      <View
+        style={[
+          s.content,
+          {
+            paddingTop: Math.max(insets.top, 24) + 36,
+            paddingBottom: Math.max(insets.bottom, 24) + 28,
+          },
+        ]}
+      >
         <View style={s.center}>
           <Animated.View
             style={[

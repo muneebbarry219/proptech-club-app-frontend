@@ -43,10 +43,14 @@ export default function EventRegistrationModal({ visible, eventId, eventTitle, q
   });
 
   return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-    <KeyboardAvoidingView style={s.overlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <KeyboardAvoidingView style={s.overlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={s.sheet}>
         <View style={s.header}><View style={{ flex: 1 }}><Text style={s.title}>Register for event</Text><Text style={s.subtitle} numberOfLines={1}>{eventTitle}</Text></View><TouchableOpacity onPress={onClose} style={s.close}><X size={19} color="#312FB8" /></TouchableOpacity></View>
-        <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={s.content}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+        >
           {questions.map((item, index) => <View key={item.id}>
             <Text style={s.label}>{index + 1}. {item.question}{item.is_required ? " *" : ""}</Text>
             {item.question_type === "text" ? <TextInput value={answers[item.id] ?? ""} onChangeText={value => setAnswers(current => ({ ...current, [item.id]: value }))} style={s.input} multiline textAlignVertical="top" maxLength={2000} placeholder="Your answer" placeholderTextColor="#AAA" /> : <View style={s.options}>{item.options.map(option => {

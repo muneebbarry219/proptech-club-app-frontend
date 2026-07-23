@@ -2,7 +2,7 @@
   "expo": {
     "name": "PropTech Club",
     "slug": "proptech-club",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "proptechclub",
@@ -22,7 +22,7 @@
     },
     "android": {
       "package": "pk.landtrack.proptech.club",
-      "versionCode": 8,
+      "versionCode": 9,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon-contained.png",
         "backgroundColor": "#FFFFFF"

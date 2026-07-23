@@ -307,12 +307,16 @@ export default function CreateEventScreen() {
   if (loading) return <View style={s.loading}><ActivityIndicator color="#312FB8" size="large" /></View>;
 
   return (
-    <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === "android" ? "height" : "padding"}>
+    <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={[s.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={s.back} onPress={() => router.back()}><ArrowLeft size={20} color="#312FB8" /></TouchableOpacity>
         <Text style={s.headerTitle}>{isEditing ? "Edit event" : "Add event"}</Text><View style={{ width: 40 }} />
       </View>
-      <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={s.content}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+      >
         <TouchableOpacity style={s.cover} onPress={pickCover} activeOpacity={0.85}>
           {coverUri ? <Image source={{ uri: coverUri }} style={s.coverImage} /> : <><ImagePlus size={26} color="#312FB8" /><Text style={s.coverText}>Choose cover image</Text></>}
         </TouchableOpacity>
